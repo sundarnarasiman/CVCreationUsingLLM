@@ -42,10 +42,6 @@ class ResumePDFFormatter:
     def create_pdf(self, resume_data, output_path):
         """Create a professional PDF resume"""
         try:
-            # Inform user about OS-detected font
-            system_name = platform.system()
-            print(f"🖥️  Detected OS: {system_name} → Using font: {self.font_family}")
-            
             self.pdf = FPDF('P', 'mm', 'A4')  # Explicitly set format
             self.pdf.set_left_margin(10)
             self.pdf.set_right_margin(10)
@@ -110,11 +106,11 @@ class ResumePDFFormatter:
     
     def _add_header(self, header):
         """Add resume header with contact info"""
-        self.pdf.set_font(self.font_family, 'B', 16)
+        self.pdf.set_font('Helvetica', 'B', 16)
         name = header.get('name', 'Your Name')
         self.pdf.cell(0, 10, name, ln=True, align='C')
         
-        self.pdf.set_font(self.font_family, '', 9)
+        self.pdf.set_font('Helvetica', '', 9)
         contact_info = header.get('contact', [])
         contact_line = ' | '.join(contact_info[:4])
         self.pdf.cell(0, 5, contact_line, ln=True, align='C')
@@ -122,13 +118,13 @@ class ResumePDFFormatter:
     
     def _add_section_title(self, title):
         """Add section title"""
-        self.pdf.set_font(self.font_family, 'B', 12)
+        self.pdf.set_font('Helvetica', 'B', 12)
         self.pdf.cell(0, 8, title.upper(), ln=True)
         self.pdf.ln(2)
     
     def _add_text(self, text, size=10, style=''):
         """Add regular text"""
-        self.pdf.set_font(self.font_family, style, size)
+        self.pdf.set_font('Helvetica', style, size)
         self.pdf.set_x(self.pdf.l_margin)
         self.pdf.multi_cell(0, 5, text)
     
@@ -142,7 +138,7 @@ class ResumePDFFormatter:
                 skill_text = ', '.join(skill_list)
                 full_text = f"{skill_type_formatted}: {skill_text}"
                 
-                self.pdf.set_font(self.font_family, '', 10)
+                self.pdf.set_font('Helvetica', '', 10)
                 self.pdf.set_x(self.pdf.l_margin)
                 self.pdf.multi_cell(0, 5, full_text)
         
@@ -156,17 +152,17 @@ class ResumePDFFormatter:
         
         for exp in experiences:
             # Job title and company
-            self.pdf.set_font(self.font_family, 'B', 11)
+            self.pdf.set_font('Helvetica', 'B', 11)
             title_company = f"{exp.get('title', 'Position')} | {exp.get('company', 'Company')}"
             self.pdf.cell(0, 6, title_company, ln=True)
             
             # Location and dates
-            self.pdf.set_font(self.font_family, 'I', 9)
+            self.pdf.set_font('Helvetica', 'I', 9)
             location_dates = f"{exp.get('location', '')} | {exp.get('dates', '')}"
             self.pdf.cell(0, 5, location_dates, ln=True)
             
             # Bullets
-            self.pdf.set_font(self.font_family, '', 10)
+            self.pdf.set_font('Helvetica', '', 10)
             bullets = exp.get('bullets', [])
             for bullet in bullets:
                 # Add bullet with indentation
@@ -181,11 +177,11 @@ class ResumePDFFormatter:
         self._add_section_title("Education")
         
         for edu in education:
-            self.pdf.set_font(self.font_family, 'B', 10)
+            self.pdf.set_font('Helvetica', 'B', 10)
             degree_institution = f"{edu.get('degree', 'Degree')} | {edu.get('institution', 'Institution')}"
             self.pdf.cell(0, 6, degree_institution, ln=True)
             
-            self.pdf.set_font(self.font_family, 'I', 9)
+            self.pdf.set_font('Helvetica', 'I', 9)
             grad_date = edu.get('graduation_date', '')
             honors = edu.get('honors', '')
             if honors:
@@ -200,17 +196,17 @@ class ResumePDFFormatter:
         self._add_section_title("Projects")
         
         for proj in projects:
-            self.pdf.set_font(self.font_family, 'B', 10)
+            self.pdf.set_font('Helvetica', 'B', 10)
             self.pdf.cell(0, 6, proj.get('name', 'Project'), ln=True)
             
-            self.pdf.set_font(self.font_family, '', 10)
+            self.pdf.set_font('Helvetica', '', 10)
             description = proj.get('description', '')
             self.pdf.set_x(self.pdf.l_margin)
             self.pdf.multi_cell(0, 5, description)
             
             technologies = proj.get('technologies', [])
             if technologies:
-                self.pdf.set_font(self.font_family, 'I', 9)
+                self.pdf.set_font('Helvetica', 'I', 9)
                 tech_text = f"Technologies: {', '.join(technologies)}"
                 self.pdf.set_x(self.pdf.l_margin)
                 self.pdf.multi_cell(0, 5, tech_text)
@@ -222,7 +218,7 @@ class ResumePDFFormatter:
         self._add_section_title("Certifications")
         
         for cert in certifications:
-            self.pdf.set_font(self.font_family, '', 10)
+            self.pdf.set_font('Helvetica', '', 10)
             cert_text = f"- {cert.get('name', 'Certification')} - {cert.get('issuer', '')} ({cert.get('date', '')})"
             self.pdf.set_x(self.pdf.l_margin)
             self.pdf.multi_cell(0, 5, cert_text)

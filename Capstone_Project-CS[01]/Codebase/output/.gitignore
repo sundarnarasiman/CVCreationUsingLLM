@@ -1,0 +1,2 @@
+# Prevent source files in output directory
+*.py

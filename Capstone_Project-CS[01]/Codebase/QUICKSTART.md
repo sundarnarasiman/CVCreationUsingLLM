@@ -2,12 +2,28 @@
 
 ## 🚀 Get Started in 5 Minutes
 
-### Step 1: Install Dependencies (1 minute)
+### Step 1: Create Virtual Environment (1 minute)
+
+**On Linux/Mac:**
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
+
+**On Windows:**
+```cmd
+python -m venv venv
+venv\Scripts\activate
+```
+
+You should see `(venv)` in your terminal prompt when activated.
+
+### Step 2: Install Dependencies (1 minute)
 ```bash
 pip install -r requirements.txt
 ```
 
-### Step 2: Configure API Key (1 minute)
+### Step 3: Configure API Key (1 minute)
 ```bash
 # Copy the example file
 cp .env.example .env
@@ -27,7 +43,7 @@ On Windows:
 notepad .env
 ```
 
-### Step 3: Run with Sample Data (3 minutes)
+### Step 4: Run with Sample Data (2 minutes)
 ```bash
 python main.py
 ```
@@ -47,7 +63,7 @@ python main.py
 - Export PDF and DOCX files to the `output/` folder
 - Total time: ~30-60 seconds
 
-### Step 4: View Results
+### Step 5: View Results
 ```bash
 ls output/
 ```
@@ -252,6 +268,44 @@ Using the sample data:
 - **Total**: ~$0.03-0.05 per complete workflow
 
 Actual costs may vary based on resume and job description length.
+
+---
+
+## 🔄 Virtual Environment Management
+
+### Activating the Environment
+Before running any Python commands, always activate:
+
+**Linux/Mac:**
+```bash
+source venv/bin/activate
+```
+
+**Windows:**
+```cmd
+venv\Scripts\activate
+```
+
+### Deactivating the Environment
+When you're done working:
+
+```bash
+deactivate
+```
+
+### Checking if Activated
+Look for `(venv)` prefix in your terminal:
+```bash
+(venv) ➜  Codebase
+```
+
+### Reinstalling Dependencies
+If you encounter issues:
+
+```bash
+source venv/bin/activate  # or venv\Scripts\activate on Windows
+pip install -r requirements.txt --force-reinstall
+```
 
 ---
 

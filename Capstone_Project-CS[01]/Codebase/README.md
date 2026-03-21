@@ -40,7 +40,23 @@ A dual-LLM system for creating tailored, ATS-optimized CVs using OpenAI's GPT-4o
 cd Capstone_Project-CS[01]/Codebase
 ```
 
-### 2. Install Dependencies
+### 2. Create Virtual Environment (Recommended)
+
+**On Linux/Mac:**
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
+
+**On Windows:**
+```cmd
+python -m venv venv
+venv\Scripts\activate
+```
+
+You should see `(venv)` prefix in your terminal when activated.
+
+### 3. Install Dependencies
 
 ```bash
 pip install -r requirements.txt
@@ -56,7 +72,9 @@ Required packages:
 - `reportlab==4.0.7` - Advanced PDF formatting
 - `openai==1.10.0` - OpenAI API client
 
-### 3. Configure API Key
+### 4. Configure API Key
+
+**Make sure your virtual environment is activated** (you should see `(venv)` in your terminal).
 
 ```bash
 # Copy the example environment file
@@ -77,6 +95,16 @@ ATS_SCORE_THRESHOLD=75
 ```
 
 ## 💻 Usage
+
+**Always activate your virtual environment first:**
+
+```bash
+# On Linux/Mac
+source venv/bin/activate
+
+# On Windows
+venv\Scripts\activate
+```
 
 ### Complete Workflow (Recommended for First-Time Users)
 

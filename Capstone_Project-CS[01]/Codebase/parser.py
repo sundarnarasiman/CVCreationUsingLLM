@@ -197,7 +197,7 @@ If any field is not present in the job description, use null or an empty array a
             else:
                 # Generate filename from job title if available
                 job_title = parsed_data.get('job_title', 'job').replace(' ', '_').lower()
-                filename = f"{job_title}_parsed"
+                filename = job_title
             output_filepath = f"output/{filename}_parsed.json"
         
         self.save_to_json(parsed_data, output_filepath)

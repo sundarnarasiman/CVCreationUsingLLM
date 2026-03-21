@@ -137,11 +137,9 @@ class CVCreationSystem:
             # Step 4: Generate tailored resume
             print("\n📍 STEP 4/5: Resume Generation")
             print("-" * 70)
-            resume_content, strategy = self.generator.process_resume_generation(
+            resume_content, strategy, resume_json = self.generator.process_resume_generation(
                 profile_json, job_json
             )
-            
-            resume_json = f"output/{os.path.splitext(os.path.basename(resume_file))[0]}_tailored.json"
             
             # Step 5: Iterative revision
             print("\n📍 STEP 5/5: Review & Revision")
@@ -254,7 +252,8 @@ class CVCreationSystem:
             profile_path = input("\nEnter path to extracted profile JSON: ").strip()
             job_path = input("Enter path to parsed job JSON: ").strip()
             
-            self.generator.process_resume_generation(profile_path, job_path)
+            resume_content, strategy, resume_path = self.generator.process_resume_generation(profile_path, job_path)
+            print(f"\n✅ Resume saved to: {resume_path}")
             
         except Exception as e:
             print(f"\n❌ Error: {str(e)}")

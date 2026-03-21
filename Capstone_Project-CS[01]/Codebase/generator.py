@@ -289,8 +289,14 @@ Generate the optimized resume content.""")
         # Save resume data
         if output_filepath is None:
             candidate_name = profile_data.get('personal_details', {}).get('name', 'candidate')
+            # Handle None or empty name
+            if not candidate_name or candidate_name == 'None':
+                candidate_name = 'candidate'
             candidate_name = candidate_name.replace(' ', '_').lower()
-            job_title = job_data.get('job_title', 'position').replace(' ', '_').lower()
+            job_title = job_data.get('job_title', 'position')
+            if not job_title or job_title == 'None':
+                job_title = 'position'
+            job_title = job_title.replace(' ', '_').lower()
             output_filepath = f"output/{candidate_name}_{job_title}_resume.json"
         
         self.save_resume_data(resume_content, output_filepath)
@@ -303,7 +309,7 @@ Generate the optimized resume content.""")
         print("\n✅ Resume generation complete!")
         print(f"📊 Strategy saved to: {strategy_path}")
         
-        return resume_content, strategy
+        return resume_content, strategy, output_filepath
 
 
 def main():
@@ -317,9 +323,10 @@ def main():
     job_path = input("Enter path to parsed job JSON: ").strip()
     
     try:
-        resume_content, strategy = generator.process_resume_generation(profile_path, job_path)
+        resume_content, strategy, resume_path = generator.process_resume_generation(profile_path, job_path)
         
         print("\n✨ Generation successful!")
+        print(f"📄 Resume saved to: {resume_path}")
         print(f"\nMatch Score: {strategy.get('match_score', 'N/A')}")
         print(f"Keyword Coverage: {resume_content.get('keyword_coverage', {}).get('keyword_density', 'N/A')}")
         

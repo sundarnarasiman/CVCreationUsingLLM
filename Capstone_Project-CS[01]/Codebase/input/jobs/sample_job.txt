@@ -1,0 +1,108 @@
+Senior Backend Engineer - Cloud Infrastructure
+
+Company: CloudTech Solutions
+Location: Remote (US-based)
+Job Type: Full-time
+Experience Level: Senior (5+ years)
+
+ABOUT US:
+CloudTech Solutions is a leading provider of cloud-native application platforms. We help enterprises modernize their infrastructure and build scalable, resilient systems. Our team of 200+ engineers works on cutting-edge technology serving Fortune 500 clients.
+
+JOB DESCRIPTION:
+We are seeking an experienced Senior Backend Engineer to join our Cloud Infrastructure team. You will be responsible for designing and building highly scalable backend services, improving system reliability, and mentoring junior team members.
+
+REQUIRED QUALIFICATIONS:
+
+Experience:
+• 5+ years of professional software development experience
+• 3+ years of experience with Python or Go
+• Strong experience with microservices architecture
+• Proven track record of building and scaling distributed systems
+• Experience with cloud platforms (AWS, GCP, or Azure)
+
+Technical Skills:
+• Proficiency in Python (Django, Flask, or FastAPI)
+• Strong understanding of RESTful API design and implementation
+• Experience with containerization (Docker) and orchestration (Kubernetes)
+• Knowledge of SQL and NoSQL databases (PostgreSQL, MongoDB, Redis)
+• Experience with message queues and event-driven architectures (RabbitMQ, Kafka)
+• Proficiency with CI/CD pipelines and DevOps practices
+• Strong understanding of system design and architecture patterns
+
+Soft Skills:
+• Excellent problem-solving and debugging skills
+• Strong communication and collaboration abilities
+• Experience mentoring junior developers
+• Ability to work independently in a remote environment
+• Strong attention to detail and code quality
+
+Education:
+• Bachelor's degree in Computer Science or related field (or equivalent experience)
+
+PREFERRED QUALIFICATIONS:
+• Experience with Go, Rust, or other systems programming languages
+• Knowledge of service mesh technologies (Istio, Linkerd)
+• Experience with infrastructure as code (Terraform, CloudFormation)
+• Familiarity with monitoring and observability tools (Prometheus, Grafana, ELK)
+• Experience with GraphQL
+• AWS certifications
+• Contributions to open-source projects
+• Experience in fintech or healthcare domains
+• Master's degree in Computer Science
+
+KEY RESPONSIBILITIES:
+• Design, develop, and maintain scalable backend services and APIs
+• Build and optimize microservices using Python, Docker, and Kubernetes
+• Implement best practices for code quality, testing, and documentation
+• Collaborate with frontend developers, DevOps, and product teams
+• Participate in system design discussions and architectural decisions
+• Monitor and improve system performance, reliability, and scalability
+• Write comprehensive unit and integration tests
+• Conduct code reviews and provide constructive feedback
+• Mentor junior engineers and share knowledge across the team
+• Participate in on-call rotation for production support
+• Research and evaluate new technologies and tools
+• Contribute to technical documentation and runbooks
+
+TECHNICAL ENVIRONMENT:
+• Languages: Python, Go, Node.js
+• Frameworks: Django, FastAPI, Flask
+• Databases: PostgreSQL, Redis, MongoDB
+• Cloud: AWS (EC2, ECS, Lambda, RDS, S3)
+• Containers: Docker, Kubernetes (EKS)
+• CI/CD: Jenkins, GitHub Actions, ArgoCD
+• Monitoring: Prometheus, Grafana, Datadog
+• Message Queues: RabbitMQ, AWS SQS/SNS
+• Version Control: Git, GitHub
+• Agile tools: Jira, Confluence
+
+BENEFITS:
+• Competitive salary range: $150,000 - $200,000 based on experience
+• Comprehensive health, dental, and vision insurance
+• 401(k) matching up to 6%
+• Unlimited PTO policy
+• Remote work flexibility
+• Home office stipend
+• Professional development budget ($3,000/year)
+• Conference attendance opportunities
+• Latest MacBook Pro and equipment
+• Equity compensation (stock options)
+• Annual performance bonuses
+• Team offsites and virtual events
+
+INTERVIEW PROCESS:
+1. Initial phone screen with recruiter (30 min)
+2. Technical phone interview (1 hour)
+3. Technical coding challenge (take-home, 3-4 hours)
+4. Virtual onsite (4 hours):
+   - System design interview (1 hour)
+   - Coding interview (1 hour)
+   - Behavioral interview (1 hour)
+   - Team fit conversation (1 hour)
+5. Reference checks
+6. Offer
+
+HOW TO APPLY:
+Please submit your resume, GitHub profile (if available), and a brief cover letter explaining your interest in the role and relevant experience. Applications without cover letters will not be considered.
+
+CloudTech Solutions is an equal opportunity employer. We celebrate diversity and are committed to creating an inclusive environment for all employees.

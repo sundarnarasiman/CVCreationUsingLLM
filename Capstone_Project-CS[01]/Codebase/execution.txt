@@ -1,1 +1,213 @@
-python main.py
+CV CREATION USING LLM - EXECUTION GUIDE
+========================================
+
+PREREQUISITES:
+--------------
+1. Python 3.8 or higher installed
+2. OpenAI API key obtained
+3. All dependencies installed
+
+SETUP INSTRUCTIONS:
+-------------------
+
+Step 1: Install Dependencies
+$ pip install -r requirements.txt
+
+Step 2: Configure Environment
+$ cp .env.example .env
+$ nano .env  # Or use any text editor
+# Add your OpenAI API key to the OPENAI_API_KEY field
+
+Step 3: Verify Installation
+$ python -c "import langchain, openai, pdfplumber, docx; print('All dependencies installed!')"
+
+
+EXECUTION METHODS:
+------------------
+
+METHOD 1: Complete Interactive Workflow (Recommended)
+------------------------------------------------------
+$ python main.py
+
+This launches the interactive menu with options:
+- Option 1: Complete workflow (Extract → Parse → Generate → Revise → Export)
+- Option 2: Quick match (Check profile-job fit)
+- Options 3-7: Individual features
+- Option 0: Exit
+
+Example session:
+$ python main.py
+Select option (0-7): 1
+Enter path to your resume: input/profiles/my_resume.pdf
+Select (1/2): 1
+Enter path to job description file: input/jobs/job_description.txt
+Continue anyway? (y/n): y
+Would you like to review and revise the resume? (y/n): y
+Select option (1/2/3): 1
+[Enter your edits...]
+DONE
+Select (1/2/3): 2
+Select (1/2/3): 1
+
+
+METHOD 2: Run Individual Features
+----------------------------------
+
+Feature 1 - Extract Resume Data:
+$ python extractor.py
+Enter the path to your resume file: input/profiles/resume.pdf
+
+Feature 2 - Parse Job Description:
+$ python parser.py
+Select option (1/2): 1
+Enter the path to the job description file: input/jobs/job.txt
+
+Feature 3 - Generate Tailored Resume:
+$ python generator.py
+Enter path to extracted profile JSON: output/resume_extracted.json
+Enter path to parsed job JSON: output/job_parsed.json
+
+Feature 4 - Revise with ATS Feedback:
+$ python reviser.py
+Enter path to resume JSON: output/resume.json
+Enter path to job JSON: output/job_parsed.json
+
+ATS Checker (Standalone):
+$ python ats_checker.py
+Enter path to resume JSON: output/resume.json
+Enter path to job JSON: output/job_parsed.json
+
+Profile-Job Matcher:
+$ python matcher.py
+Enter path to profile JSON: output/resume_extracted.json
+Enter path to job JSON: output/job_parsed.json
+
+Export to PDF/DOCX:
+$ python formatters.py
+Enter path to resume JSON: output/resume_final.json
+Select (1/2/3): 3
+
+
+SAMPLE WORKFLOW EXECUTION:
+--------------------------
+
+Complete workflow with sample data:
+
+1. Prepare input files:
+   - Place resume in: input/profiles/john_doe_resume.pdf
+   - Place job desc in: input/jobs/software_engineer.txt
+
+2. Run main program:
+   $ python main.py
+
+3. Follow prompts:
+   - Select: 1 (Complete workflow)
+   - Resume path: input/profiles/john_doe_resume.pdf
+   - Job option: 1 (Load from file)
+   - Job path: input/jobs/software_engineer.txt
+   - Continue: y
+   - Review: y
+   - Make edits: 1
+   - Type edits, then "DONE"
+   - Accept: 2
+   - Export format: 3 (Both PDF and DOCX)
+
+4. Check outputs in output/ folder:
+   - john_doe_resume_extracted.json
+   - job_parsed.json
+   - john_doe_software_engineer_resume.json
+   - john_doe_software_engineer_resume_final.json
+   - john_doe_software_engineer_resume_final.pdf
+   - john_doe_software_engineer_resume_final.docx
+
+
+EXPECTED OUTPUT FILES:
+----------------------
+
+After Feature 1 (Extraction):
+- output/<resume_name>_extracted.json
+
+After Feature 2 (Parsing):
+- output/<job_name>_parsed.json
+
+After Feature 3 (Generation):
+- output/<name>_<job>_resume.json
+- output/<name>_<job>_strategy.json
+
+After Feature 4 (Revision):
+- output/<name>_<job>_resume_v1.json (iteration 1)
+- output/<name>_<job>_resume_v2.json (iteration 2)
+- ...
+- output/<name>_<job>_resume_final.json
+- output/<name>_<job>_resume_revision_history.json
+- output/<name>_<job>_resume_final_ats_feedback.json
+
+After Export:
+- output/<name>_<job>_resume_final.pdf
+- output/<name>_<job>_resume_final.docx
+
+
+TROUBLESHOOTING:
+----------------
+
+Error: "OpenAI API key not configured"
+Solution: Ensure .env file exists and contains valid API key
+
+Error: "ModuleNotFoundError"
+Solution: Run "pip install -r requirements.txt"
+
+Error: "File not found"
+Solution: Use absolute or correct relative paths to input files
+
+Error: "No text could be extracted"
+Solution: Ensure PDF is not scanned image, try converting to TXT first
+
+Error: "Rate limit exceeded"
+Solution: Wait a few seconds and try again, or check API quota
+
+
+NOTES:
+------
+
+1. All output files are saved in the output/ folder
+2. Input files can be placed in input/profiles/ and input/jobs/ for organization
+3. The system uses GPT-4o-mini for extraction/parsing (cost-effective)
+4. The system uses GPT-4o for generation/revision (higher quality)
+5. Each complete workflow costs approximately $0.02-0.05 in API credits
+6. ATS scores above 75 are considered good for most systems
+7. Multiple revisions can improve ATS scores significantly
+8. Always export final resume in both PDF and DOCX formats
+9. Revision history is tracked automatically
+10. All intermediate files are kept for reference
+
+
+TERMINAL-ONLY EXECUTION:
+------------------------
+
+This system is designed for terminal-only execution with no GUI.
+All interactions happen through:
+- Command-line prompts
+- Text input
+- Menu selections
+- File path specifications
+
+Example of terminal interaction flow:
+$ python main.py
+[Banner displays]
+Select option (0-7): 1
+Enter path to your resume: input/profiles/my_resume.pdf
+[Processing messages...]
+Enter path to job description file: input/jobs/job.txt
+[More processing...]
+Would you like to review and revise the resume? (y/n): y
+[Resume summary displays]
+Select option (1/2/3): 1
+Describe the changes you'd like to make:
+Add more Python experience to my skills section
+Emphasize my machine learning projects
+DONE
+[Processing and results display...]
+
+
+END OF EXECUTION GUIDE
+======================

@@ -1,0 +1,86 @@
+John Doe
+Email: john.doe@email.com | Phone: (555) 123-4567 | Location: San Francisco, CA
+LinkedIn: linkedin.com/in/johndoe | GitHub: github.com/johndoe
+
+PROFESSIONAL SUMMARY
+Software Engineer with 5 years of experience in full-stack web development. Specialized in Python, JavaScript, and cloud technologies. Proven track record of building scalable applications and improving system performance.
+
+WORK EXPERIENCE
+
+Senior Software Engineer
+Tech Innovations Inc., San Francisco, CA
+January 2021 - Present
+• Developed and maintained microservices architecture using Python, Django, and FastAPI
+• Built RESTful APIs serving 1M+ requests daily with 99.9% uptime
+• Implemented CI/CD pipelines using Jenkins and Docker, reducing deployment time by 60%
+• Mentored 3 junior developers and conducted code reviews
+• Optimized database queries resulting in 40% performance improvement
+• Collaborated with product team to deliver features for 50K+ active users
+
+Software Engineer
+Digital Solutions Corp., San Jose, CA
+June 2019 - December 2020
+• Designed and implemented full-stack web applications using React and Node.js
+• Created automated testing suite with Jest and Pytest, improving code coverage to 85%
+• Integrated third-party APIs (Stripe, Twilio, SendGrid) for payment and communication features
+• Participated in Agile/Scrum ceremonies and sprint planning
+• Reduced page load time by 50% through code optimization and caching strategies
+
+Junior Software Developer
+StartUp Ventures, Palo Alto, CA
+July 2018 - May 2019
+• Developed frontend components using React, Redux, and Material-UI
+• Built responsive web interfaces compatible with mobile and desktop browsers
+• Fixed 100+ bugs and implemented feature requests
+• Worked with SQL databases (PostgreSQL, MySQL) to design schemas and write queries
+• Assisted in migration of legacy codebase to modern tech stack
+
+EDUCATION
+
+Bachelor of Science in Computer Science
+University of California, Berkeley
+Graduated: May 2018
+GPA: 3.7/4.0
+Honors: Dean's List (6 semesters), Cum Laude
+
+TECHNICAL SKILLS
+
+Programming Languages: Python, JavaScript, TypeScript, Java, SQL, HTML/CSS
+Frameworks & Libraries: Django, Flask, FastAPI, React, Node.js, Express, Redux
+Databases: PostgreSQL, MySQL, MongoDB, Redis
+Cloud & DevOps: AWS (EC2, S3, Lambda), Docker, Kubernetes, Jenkins, Git/GitHub
+Tools & Technologies: REST APIs, GraphQL, Microservices, Agile/Scrum, CI/CD
+
+PROJECTS
+
+E-commerce Platform (2022)
+• Built full-stack e-commerce application using Django, React, and PostgreSQL
+• Implemented payment processing with Stripe, inventory management, and order tracking
+• Deployed on AWS with auto-scaling and load balancing
+• Technologies: Python, Django, React, PostgreSQL, AWS, Docker
+
+Real-time Chat Application (2021)
+• Developed real-time messaging system using WebSockets and Redis
+• Support for 1000+ concurrent users with sub-100ms latency
+• Features: group chats, file sharing, message encryption
+• Technologies: Node.js, Socket.io, Redis, MongoDB, React
+
+Machine Learning Recommendation System (2020)
+• Created content recommendation engine using collaborative filtering
+• Improved user engagement by 25% through personalized suggestions
+• Processed 1M+ user interactions daily
+• Technologies: Python, scikit-learn, Pandas, NumPy
+
+CERTIFICATIONS
+
+AWS Certified Solutions Architect - Associate
+Amazon Web Services, 2022
+
+Professional Scrum Master I (PSM I)
+Scrum.org, 2021
+
+ACHIEVEMENTS
+• Won "Best Innovation Award" at Tech Innovations Inc. hackathon (2022)
+• Published article on "Optimizing Django Applications" with 10K+ views
+• Contributed to 5 open-source projects on GitHub
+• Speaker at local Python meetup on "Building Scalable APIs"

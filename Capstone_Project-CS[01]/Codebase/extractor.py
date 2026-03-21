@@ -8,8 +8,8 @@ import json
 import pdfplumber
 from docx import Document
 from langchain_openai import ChatOpenAI
-from langchain.prompts import ChatPromptTemplate
-from langchain.output_parsers import JsonOutputParser
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import JsonOutputParser
 from dotenv import load_dotenv
 
 load_dotenv()

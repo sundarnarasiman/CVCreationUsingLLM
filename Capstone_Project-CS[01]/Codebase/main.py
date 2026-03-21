@@ -114,10 +114,11 @@ class CVCreationSystem:
             if job_choice == '1':
                 job_file = input("Enter path to job description file: ").strip()
                 parsed_job = self.parser.process_job_description(input_filepath=job_file)
+                job_json = f"output/{os.path.splitext(os.path.basename(job_file))[0]}_parsed.json"
             else:
                 parsed_job = self.parser.process_job_description()
-            
-            job_json = f"output/job_parsed.json"
+                job_title = parsed_job.get('job_title', 'job').replace(' ', '_').lower()
+                job_json = f"output/{job_title}_parsed.json"
             
             # Step 3: Check match score
             print("\n📍 STEP 3/5: Profile-Job Matching")

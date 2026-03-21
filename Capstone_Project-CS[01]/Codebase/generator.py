@@ -6,7 +6,7 @@ Generates tailored, ATS-friendly CVs based on profile data and job requirements
 import os
 import json
 from langchain_openai import ChatOpenAI
-from langchain.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
 from dotenv import load_dotenv
 
 load_dotenv()

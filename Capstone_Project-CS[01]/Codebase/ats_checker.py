@@ -1,6 +1,10 @@
-"""
-Feature 4b: ATS Compatibility Checker
+"""Feature 4b: ATS Compatibility Checker (ENHANCED WITH SEMANTIC SIMILARITY)
 Provides real-time ATS scoring and feedback for resumes
+
+ENHANCEMENT: Semantic Similarity using OpenAI text-embedding-3-small
+- Keyword matching uses semantic embeddings instead of exact matching
+- Detects related technical terms (e.g., "python" similar to "java")
+- Better accuracy for ATS scoring with semantic understanding
 """
 
 import os
@@ -8,16 +12,33 @@ import json
 import re
 from collections import Counter
 from dotenv import load_dotenv
+from openai import OpenAI
 
 load_dotenv()
 
+# Initialize OpenAI client with proper error handling
+try:
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+except Exception as e:
+    print(f"Warning: Error initializing OpenAI client: {str(e)}")
+    client = None
+
+# Embedding cache shared across instances
+EMBEDDING_CACHE_ATS = {}
+
 
 class ATSChecker:
-    """Analyze resume content for ATS compatibility"""
+    """Analyze resume content for ATS compatibility
+    
+    Enhanced with OpenAI Semantic Similarity for better keyword matching
+    """
     
     def __init__(self):
         """Initialize the ATS checker"""
         self.threshold = int(os.getenv("ATS_SCORE_THRESHOLD", "75"))
+        self.embedding_model = "text-embedding-3-small"
+        self.semantic_threshold = 0.7
+        self.embedding_cache = EMBEDDING_CACHE_ATS
         
         # Common ATS-problematic elements
         self.problematic_patterns = {
@@ -25,6 +46,41 @@ class ATSChecker:
             'special_chars': r'[★☆●○■□▪▫◆◇]',  # Special bullets
             'complex_formatting': r'{|}|\\begin|\\end',  # LaTeX-like
         }
+    
+    def get_embedding(self, text):
+        """Get OpenAI embedding for text (with caching)"""
+        if client is None:
+            return None
+        
+        if text in self.embedding_cache:
+            return self.embedding_cache[text]
+        
+        try:
+            response = client.embeddings.create(
+                input=text,
+                model=self.embedding_model,
+                timeout=10  # 10 second timeout per request
+            )
+            embedding = response.data[0].embedding
+            self.embedding_cache[text] = embedding
+            return embedding
+        except Exception as e:
+            print(f"Warning: Error getting embedding: {str(e)}")
+            return None
+    
+    def cosine_similarity(self, vec_a, vec_b):
+        """Calculate cosine similarity between embedding vectors"""
+        if vec_a is None or vec_b is None:
+            return 0.0
+        
+        dot_product = sum(a * b for a, b in zip(vec_a, vec_b))
+        magnitude_a = sum(a ** 2 for a in vec_a) ** 0.5
+        magnitude_b = sum(b ** 2 for b in vec_b) ** 0.5
+        
+        if magnitude_a == 0 or magnitude_b == 0:
+            return 0.0
+        
+        return dot_product / (magnitude_a * magnitude_b)
     
     def extract_text_from_resume(self, resume_content):
         """Extract all text content from resume JSON for analysis"""
@@ -95,42 +151,128 @@ class ATSChecker:
         return keywords
     
     def calculate_keyword_match(self, resume_content, job_data):
-        """Calculate keyword match percentage between resume and job"""
-        # Extract job keywords
-        job_keywords = set()
+        """Calculate keyword match using HYBRID approach: fast exact + semantic + TF-WEIGHTED
+        
+        OPTIMIZATION: Two-stage matching with TF (Term Frequency) weighting
+        Stage 1: Fast exact/fuzzy match (instant)
+        Stage 2: Semantic similarity only if needed (uses API)
+        Stage 0: Use frequency weighting to prioritize important keywords
+        
+        Returns: (match_percentage, matched_keywords, missing_keywords)
+        """
+        # Extract job keywords with frequency weighting
+        job_keywords = Counter()
         
         if isinstance(job_data, dict):
-            # Technical skills
+            # Technical skills (high importance - double weight)
             tech_skills = job_data.get('requirements', {}).get('technical_skills', [])
-            for skill in tech_skills:
-                job_keywords.update(self.extract_keywords_from_text(str(skill)))
+            if tech_skills:
+                for skill in tech_skills:
+                    skill_kws = self.extract_keywords_from_text(str(skill))
+                    job_keywords.update(skill_kws)
+                    job_keywords.update(skill_kws)  # Double-weight required technical skills
             
             # Keywords section
             keywords_section = job_data.get('keywords', {})
-            for keyword_type, keyword_list in keywords_section.items():
-                if isinstance(keyword_list, list):
-                    for kw in keyword_list:
-                        job_keywords.update(self.extract_keywords_from_text(str(kw)))
+            if keywords_section:
+                for keyword_type, keyword_list in keywords_section.items():
+                    if isinstance(keyword_list, list):
+                        for kw in keyword_list:
+                            job_keywords.update(self.extract_keywords_from_text(str(kw)))
             
             # Responsibilities
             responsibilities = job_data.get('responsibilities', [])
-            for resp in responsibilities:
-                job_keywords.update(self.extract_keywords_from_text(str(resp)))
+            if responsibilities:
+                for resp in responsibilities:
+                    job_keywords.update(self.extract_keywords_from_text(str(resp)))
         
-        # Extract resume keywords
+        # Extract resume keywords with frequency weighting
         resume_text = self.extract_text_from_resume(resume_content)
-        resume_keywords = set(self.extract_keywords_from_text(resume_text))
+        resume_kws_extracted = self.extract_keywords_from_text(resume_text)
+        resume_keywords = Counter(resume_kws_extracted)  # Count frequency
         
-        # Calculate match
         if not job_keywords:
             return 100.0, [], list(job_keywords)
         
-        matched_keywords = job_keywords.intersection(resume_keywords)
-        missing_keywords = job_keywords - resume_keywords
+        # OPTIMIZATION: Limit to top 30 keywords (by frequency, not position!)
+        MAX_KEYWORDS = 30
+        job_kws_limited = [kw for kw, _ in job_keywords.most_common(MAX_KEYWORDS)]
+        resume_kws_limited = [kw for kw, _ in resume_keywords.most_common(MAX_KEYWORDS)]
         
-        match_percentage = (len(matched_keywords) / len(job_keywords)) * 100
+        # STAGE 1: Fast exact match (instant, no API calls)
+        resume_set = set(kw.lower() for kw in resume_kws_limited)
+        matched_keywords = []
+        missing_keywords = []
         
-        return match_percentage, sorted(list(matched_keywords)), sorted(list(missing_keywords))
+        for job_kw in job_kws_limited:
+            if job_kw.lower() in resume_set:
+                matched_keywords.append(job_kw)
+        
+        exact_match_pct = (len(matched_keywords) / len(job_kws_limited)) * 100 if job_kws_limited else 0
+        
+        # STAGE 2: If exact match is good enough (>60%), return quickly
+        if exact_match_pct >= 60:
+            print(f"    ℹ️  ATS Quick match: {exact_match_pct:.1f}% exact (skipping semantic)")
+            missing_keywords = [k for k in job_kws_limited if k not in matched_keywords]
+            return min(exact_match_pct + 15, 100), matched_keywords, missing_keywords
+        
+        # STAGE 2: Semantic matching for more accuracy
+        print(f"    🔍 ATS Semantic analysis ({exact_match_pct:.1f}% exact → checking semantics)...")
+        
+        job_embeddings = {}
+        for kw in job_kws_limited:
+            embedding = self.get_embedding(kw.lower())
+            if embedding:
+                job_embeddings[kw] = embedding
+        
+        resume_embeddings = {}
+        for kw in resume_kws_limited:
+            embedding = self.get_embedding(kw.lower())
+            if embedding:
+                resume_embeddings[kw] = embedding
+        
+        # Calculate semantic similarity for each job keyword
+        matched_keywords = []
+        missing_keywords = []
+        similarity_scores = []
+        
+        for job_kw, job_embedding in job_embeddings.items():
+            if job_embedding is None:
+                continue
+            
+            # Find best match in resume keywords
+            best_similarity = 0.0
+            for resume_kw, resume_embedding in resume_embeddings.items():
+                if resume_embedding is None:
+                    continue
+                
+                similarity = self.cosine_similarity(job_embedding, resume_embedding)
+                best_similarity = max(best_similarity, similarity)
+            
+            # Determine match strength
+            match_strength = 0.0
+            if best_similarity >= 0.85:
+                match_strength = 1.0
+            elif best_similarity >= self.semantic_threshold:
+                match_strength = best_similarity
+            
+            # Categorize
+            if match_strength > 0:
+                matched_keywords.append(job_kw)
+                similarity_scores.append(match_strength)
+            else:
+                missing_keywords.append(job_kw)
+        
+        # Calculate match percentage combining both stages
+        if similarity_scores:
+            semantic_match_pct = (sum(similarity_scores) / len(job_kws_limited)) * 100
+        else:
+            semantic_match_pct = 0.0
+        
+        # Blend exact and semantic scores
+        final_match_pct = (exact_match_pct * 0.4) + (semantic_match_pct * 0.6)
+        
+        return final_match_pct, sorted(matched_keywords), sorted(missing_keywords)
     
     def check_formatting_issues(self, resume_content):
         """Check for ATS-problematic formatting"""
@@ -159,10 +301,12 @@ class ATSChecker:
         Calculate comprehensive ATS score (0-100)
         
         Scoring breakdown:
-        - Keyword match: 50 points
+        - Keyword match (SEMANTIC): 50 points
         - Formatting: 25 points
         - Section completeness: 15 points
         - Content quality: 10 points
+        
+        Algorithm: OpenAI text-embedding-3-small for keyword matching
         """
         score = 0
         details = {}
@@ -296,12 +440,13 @@ def main():
         feedback = checker.check_resume(resume_content, job_data)
         
         print("\n" + "="*60)
-        print("ATS ANALYSIS RESULTS")
+        print("ATS ANALYSIS RESULTS (SEMANTIC SIMILARITY)")
         print("="*60)
         print(f"\n📊 ATS Score: {feedback['ats_score']}/100")
-        print(f"🎯 Keyword Match: {feedback['keyword_match_percentage']:.1f}%")
+        print(f"🎯 Semantic Keyword Match: {feedback['keyword_match_percentage']:.1f}%")
         print(f"✅ Matched Keywords: {len(feedback['matched_keywords'])}")
         print(f"❌ Missing Keywords: {len(feedback['missing_keywords'])}")
+        print(f"\n🔬 Algorithm: OpenAI text-embedding-3-small (semantic matching)")
         
         if feedback['missing_keywords']:
             print(f"\n📝 Top Missing Keywords:")

@@ -4,9 +4,8 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, Preformatted
 from reportlab.lib import colors
-import os
 
 # Cross-platform font configuration
 DOCX_FONT = "Calibri"  # Available on all platforms via Office/LibreOffice
@@ -15,7 +14,7 @@ PDF_FONT = "Helvetica"  # Universal font available on all platforms
 # Full report content
 report_content = {
     "title": "CV CREATION USING DUAL-LLM SYSTEM\nProject Report",
-    "abstract": "This capstone project presents a dual-LLM system for generating tailored, ATS-optimized CVs using OpenAI's GPT-4o-mini and GPT-4o models with LangChain orchestration. The system automates resume extraction from unstructured documents, parses job requirements, strategically aligns candidate profiles, and generates optimized resumes with real-time ATS feedback. Implemented across seven specialized Python modules, the system delivers four core features: resume extraction, job parsing, intelligent resume generation, and iterative revision. Key outcomes include a fully operational end-to-end workflow, an ATS scoring system (0-100 scale), multi-format export capabilities (PDF/DOCX), and a modular architecture enabling independent feature usage.",
+    "abstract": "This capstone project presents a dual-LLM system for generating tailored, ATS-optimized CVs using OpenAI's GPT-4o-mini and GPT-4o models with LangChain orchestration. The system automates resume extraction from unstructured documents, parses job requirements, strategically aligns candidate profiles, and generates optimized resumes with real-time ATS feedback. The latest implementation adds semantic similarity scoring using OpenAI embeddings (text-embedding-3-small) for both profile-job matching and ATS keyword analysis, improving detection of related skills beyond exact keyword overlap. This report also captures architecture decisions and engineering trade-offs across model selection, chunking strategy, embedding choice, and regex-vs-semantic matching design.",
     
     "section1": {
         "title": "1. Introduction",
@@ -35,6 +34,7 @@ report_content = {
             "Strategic resume generation (2-step process)",
             "Iterative revision with ATS feedback",
             "ATS scoring system (0-100 scale)",
+            "Semantic keyword matching using embeddings",
             "Multi-format export (PDF/DOCX)",
             "Modular, scalable architecture",
             "Profile-job matching assessment",
@@ -46,8 +46,9 @@ report_content = {
     "section4": {
         "title": "4. Methodology",
         "tech_stack": [
-            "LangChain 0.1.0+",
+            "LangChain >=1.2.13 (with langchain-community and langchain-openai)",
             "GPT-4o-mini (extraction), GPT-4o (generation)",
+            "OpenAI text-embedding-3-small (semantic similarity)",
             "pdfplumber, python-docx, fpdf2, reportlab",
             "Python 3.8+"
         ],
@@ -56,31 +57,184 @@ report_content = {
             ("parser.py", "Job parsing", "Keyword identification"),
             ("generator.py", "Resume generation", "Two-step process"),
             ("reviser.py", "Iterative refinement", "User edit integration"),
-            ("ats_checker.py", "ATS scoring", "0-100 scale evaluation"),
-            ("matcher.py", "Profile-job matching", "Gap analysis"),
+            ("ats_checker.py", "ATS scoring", "Semantic keyword evaluation (0-100 scale)"),
+            ("matcher.py", "Profile-job matching", "Embedding-based gap analysis"),
             ("formatters.py", "PDF/DOCX export", "Professional formatting"),
             ("main.py", "Orchestration", "Complete workflow")
         ]
     },
-    
+
     "section5": {
-        "title": "5. Results and Analysis",
-        "status": "FULLY COMPLETE AND OPERATIONAL",
-        "results": [
-            "8 fully functional modules (~2,530 lines of code)",
-            "4 core features + 4 supporting features",
-            "Production-ready deployment",
-            "60% cost savings vs. single-model approach",
-            "Resume extraction accuracy: 95%+",
-            "Generation time: <2 minutes per resume"
+        "title": "5. System Architecture",
+        "overview": "The system follows a pipeline-plus-feedback architecture. Inputs are parsed into structured JSON, scored for fit and ATS compatibility, then iteratively refined before final export.",
+        "diagram": [
+            "+----------------------+      +----------------------+",
+            "| Resume (PDF/DOCX/TXT)|      | Job Description (TXT)|",
+            "+----------+-----------+      +----------+-----------+",
+            "           |                             |",
+            "     extractor.py                   parser.py",
+            "           +-------------+  +------------+",
+            "                         v  v",
+            "                    main.py (workflow)",
+            "                         |",
+            "                     matcher.py",
+            "                         |",
+            "                    generator.py",
+            "                         |",
+            "           +-------------+-------------+",
+            "           |                           |",
+            "     ats_checker.py <---- reviser.py (loop)",
+            "           |",
+            "      formatters.py",
+            "           |",
+            "+----------v---------------------------+",
+            "| Tailored Resume Output (PDF/DOCX/JSON)|",
+            "+---------------------------------------+"
+        ],
+        "flow": [
+            "extractor.py converts unstructured resume content into normalized profile JSON.",
+            "parser.py structures the target job description into requirements and keywords.",
+            "main.py orchestrates feature execution and handles the interactive menu flow.",
+            "matcher.py computes profile-to-job alignment before generation.",
+            "generator.py runs strategic analysis then tailored resume synthesis.",
+            "ats_checker.py computes ATS score and semantic keyword coverage.",
+            "reviser.py applies user edits and re-runs ATS checks in a feedback loop.",
+            "formatters.py exports final resumes to human-readable PDF and DOCX." 
+        ]
+    },
+
+    "section6": {
+        "title": "6. LLM Model Selection Trade-offs (Pros & Cons)",
+        "rows": [
+            {
+                "option": "GPT-4o-mini",
+                "pros": "Lower cost; lower latency; good for extraction and parsing tasks.",
+                "cons": "Lower generation depth; weaker on nuanced phrasing for final resumes.",
+                "best_for": "High-volume structured preprocessing"
+            },
+            {
+                "option": "GPT-4o",
+                "pros": "Higher quality synthesis; stronger reasoning for strategic tailoring.",
+                "cons": "Higher cost; slower response time compared to mini model.",
+                "best_for": "Final resume generation and refinement"
+            },
+            {
+                "option": "Dual-Model (Current)",
+                "pros": "Balanced cost/performance; quality where needed, efficiency elsewhere.",
+                "cons": "More orchestration complexity and model-boundary design overhead.",
+                "best_for": "Production pipeline with quality and budget constraints"
+            }
+        ]
+    },
+
+    "section7": {
+        "title": "7. Chunking Strategy Trade-offs (Pros & Cons)",
+        "rows": [
+            {
+                "option": "No Chunking",
+                "pros": "Preserves full context in one pass for short documents.",
+                "cons": "Fails on long inputs due to token limits and higher request costs.",
+                "best_for": "Short resumes or compact job descriptions"
+            },
+            {
+                "option": "Fixed-Size Chunking",
+                "pros": "Simple implementation; predictable token usage and latency.",
+                "cons": "Can split related context across chunk boundaries.",
+                "best_for": "Baseline scalable processing"
+            },
+            {
+                "option": "Semantic/Section-Aware Chunking",
+                "pros": "Better context preservation; stronger extraction accuracy for long docs.",
+                "cons": "Higher implementation complexity and tuning effort.",
+                "best_for": "Quality-sensitive extraction pipelines"
+            }
+        ]
+    },
+
+    "section8": {
+        "title": "8. Embedding Strategy Trade-offs (Pros & Cons)",
+        "rows": [
+            {
+                "option": "text-embedding-3-small (Current)",
+                "pros": "Good semantic quality at low cost; fast enough for interactive use.",
+                "cons": "May miss subtle domain-specific nuance vs larger models.",
+                "best_for": "General semantic keyword matching at scale"
+            },
+            {
+                "option": "Larger Embedding Models",
+                "pros": "Potentially better semantic precision for complex terminology.",
+                "cons": "Higher cost and latency; larger vector/storage footprint.",
+                "best_for": "High-stakes matching where precision is critical"
+            },
+            {
+                "option": "No Embeddings (Exact Overlap)",
+                "pros": "Fully explainable logic; no embedding API dependency.",
+                "cons": "Poor recall for related terms and synonyms.",
+                "best_for": "Strict deterministic keyword filtering"
+            }
+        ]
+    },
+
+    "section9": {
+        "title": "9. Regex vs Semantic Comparison Trade-offs (Pros & Cons)",
+        "rows": [
+            {
+                "option": "Regex/Pattern Matching",
+                "pros": "High interpretability; deterministic outputs; easy debugging.",
+                "cons": "Lower recall for paraphrases and semantic variants.",
+                "best_for": "Rule-driven compliance and strict keyword checks"
+            },
+            {
+                "option": "Semantic Embedding Matching",
+                "pros": "Higher recall across synonyms and related skills.",
+                "cons": "Harder to explain to end users; threshold tuning required.",
+                "best_for": "Robust skill similarity and ATS relevance scoring"
+            },
+            {
+                "option": "Hybrid (Regex + Semantic)",
+                "pros": "Balances precision and recall with layered safeguards.",
+                "cons": "Increased maintenance complexity and orchestration effort.",
+                "best_for": "Production systems requiring trust + flexibility"
+            }
+        ]
+    },
+
+    "section10": {
+        "title": "10. Testing and Validation Summary",
+        "validation_points": [
+            "End-to-end workflow verified from resume input to PDF/DOCX output.",
+            "Semantic matching behavior validated with related-skill scenarios.",
+            "ATS scoring feedback loop tested during iterative resume revision.",
+            "Cross-platform report generation validated for Linux execution.",
+            "Module-level functionality verified for extractor, parser, matcher, generator, and reviser.",
+            "Error handling pathways tested for missing inputs and parsing edge cases."
+        ],
+        "quality_metrics": [
+            "Resume extraction quality: robust on structured and semi-structured resumes.",
+            "Generation turnaround: interactive workflow maintained for practical usage.",
+            "Semantic relevance: improved matching quality over exact keyword overlap baselines.",
+            "Maintainability: modular design supports isolated updates by component."
         ]
     },
     
-    "section6": {
-        "title": "6. Conclusion",
+    "section11": {
+        "title": "11. Results and Analysis",
+        "status": "FULLY COMPLETE AND OPERATIONAL",
+        "results": [
+            "8 fully functional core modules with modular execution",
+            "4 core features with supporting ATS and matching utilities",
+            "Production-ready deployment",
+            "Semantic similarity matching integrated in matcher.py and ats_checker.py",
+            "Improved related-skill detection beyond exact keyword overlap",
+            "Cross-platform report and resume export support"
+        ]
+    },
+    
+    "section12": {
+        "title": "12. Conclusion",
         "contributions": [
             "Fully automated resume optimization pipeline",
-            "Intelligent job-profile alignment system",
+            "Intelligent job-profile alignment with semantic matching",
             "ATS-optimized resume generation (80%+ compatibility)",
             "Real-time feedback and revision capability",
             "Cost-efficient dual-LLM orchestration",
@@ -95,6 +249,79 @@ report_content = {
         ]
     }
 }
+
+
+def set_cell_font(cell, font_name=DOCX_FONT, font_size=10, bold=False):
+    for paragraph in cell.paragraphs:
+        for run in paragraph.runs:
+            run.font.name = font_name
+            run.font.size = Pt(font_size)
+            run.font.bold = bold
+
+
+def add_docx_bullets(doc, items, style='List Bullet'):
+    for item in items:
+        para = doc.add_paragraph(item, style=style)
+        for run in para.runs:
+            run.font.name = DOCX_FONT
+            run.font.size = Pt(10)
+
+
+def add_docx_tradeoff_table(doc, section):
+    heading = doc.add_heading(section["title"], level=2)
+    heading.runs[0].font.name = DOCX_FONT
+
+    table = doc.add_table(rows=1, cols=4)
+    table.style = 'Table Grid'
+    header_cells = table.rows[0].cells
+    headers = ["Option", "Pros", "Cons", "Best Fit"]
+    for idx, text in enumerate(headers):
+        header_cells[idx].text = text
+        set_cell_font(header_cells[idx], font_name=DOCX_FONT, font_size=10, bold=True)
+
+    for row in section["rows"]:
+        cells = table.add_row().cells
+        cells[0].text = row["option"]
+        cells[1].text = row["pros"]
+        cells[2].text = row["cons"]
+        cells[3].text = row["best_for"]
+        for cell in cells:
+            set_cell_font(cell, font_name=DOCX_FONT, font_size=10)
+
+    doc.add_paragraph()
+
+
+def add_pdf_bullets(story, items, body_style):
+    for item in items:
+        story.append(Paragraph(f"<bullet>•</bullet> {item}", body_style))
+
+
+def add_pdf_tradeoff_table(story, section, body_style):
+    story.append(Paragraph(section["title"], body_style))
+
+    table_data = [["Option", "Pros", "Cons", "Best Fit"]]
+    for row in section["rows"]:
+        table_data.append([
+            Paragraph(row["option"], body_style),
+            Paragraph(row["pros"], body_style),
+            Paragraph(row["cons"], body_style),
+            Paragraph(row["best_for"], body_style)
+        ])
+
+    table = Table(table_data, colWidths=[1.45 * inch, 2.0 * inch, 2.0 * inch, 1.35 * inch])
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#D9E2F3')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('FONTNAME', (0, 0), (-1, 0), PDF_FONT),
+        ('FONTSIZE', (0, 0), (-1, -1), 8.5),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    story.append(table)
+    story.append(Spacer(1, 0.1 * inch))
 
 # ============ DOCX Generation ============
 def generate_docx():
@@ -146,11 +373,7 @@ def generate_docx():
     # Section 3
     sec3_heading = doc.add_heading(report_content["section3"]["title"], level=2)
     sec3_heading.runs[0].font.name = DOCX_FONT
-    
-    for obj in report_content["section3"]["objectives"]:
-        obj_para = doc.add_paragraph(obj, style='List Bullet')
-        for run in obj_para.runs:
-            run.font.name = DOCX_FONT
+    add_docx_bullets(doc, report_content["section3"]["objectives"])
     
     # Section 4
     sec4_heading = doc.add_heading(report_content["section4"]["title"], level=2)
@@ -173,44 +396,94 @@ def generate_docx():
         mod_para = doc.add_paragraph(f"{module}: {responsibility} ({feature})", style='List Bullet')
         for run in mod_para.runs:
             run.font.name = DOCX_FONT
-    
-    # Section 5
+            run.font.size = Pt(10)
+
+    doc.add_page_break()
+
+    # Section 5 - Architecture
     sec5_heading = doc.add_heading(report_content["section5"]["title"], level=2)
     sec5_heading.runs[0].font.name = DOCX_FONT
-    
-    status_para = doc.add_paragraph(f"Status: {report_content['section5']['status']}")
+
+    overview_para = doc.add_paragraph(report_content["section5"]["overview"])
+    for run in overview_para.runs:
+        run.font.name = DOCX_FONT
+        run.font.size = Pt(10)
+
+    diag_label = doc.add_paragraph("Architecture Diagram:")
+    diag_label.runs[0].font.name = DOCX_FONT
+    diag_label.runs[0].font.bold = True
+
+    for line in report_content["section5"]["diagram"]:
+        line_para = doc.add_paragraph(line)
+        for run in line_para.runs:
+            run.font.name = "Courier New"
+            run.font.size = Pt(8)
+
+    flow_label = doc.add_paragraph("Component Interaction Notes:")
+    flow_label.runs[0].font.name = DOCX_FONT
+    flow_label.runs[0].font.bold = True
+    add_docx_bullets(doc, report_content["section5"]["flow"])
+
+    doc.add_page_break()
+
+    # Sections 6-9 Trade-offs
+    for section_key in ["section6", "section7", "section8", "section9"]:
+        add_docx_tradeoff_table(doc, report_content[section_key])
+
+    # Section 10
+    sec10_heading = doc.add_heading(report_content["section10"]["title"], level=2)
+    sec10_heading.runs[0].font.name = DOCX_FONT
+
+    validation_label = doc.add_paragraph("Validation Checks:")
+    validation_label.runs[0].font.name = DOCX_FONT
+    validation_label.runs[0].font.bold = True
+    add_docx_bullets(doc, report_content["section10"]["validation_points"])
+
+    metrics_label = doc.add_paragraph("Quality Indicators:")
+    metrics_label.runs[0].font.name = DOCX_FONT
+    metrics_label.runs[0].font.bold = True
+    add_docx_bullets(doc, report_content["section10"]["quality_metrics"])
+
+    doc.add_page_break()
+
+    # Section 11
+    sec11_heading = doc.add_heading(report_content["section11"]["title"], level=2)
+    sec11_heading.runs[0].font.name = DOCX_FONT
+
+    status_para = doc.add_paragraph(f"Status: {report_content['section11']['status']}")
     status_para.runs[0].font.name = DOCX_FONT
     status_para.runs[0].font.bold = True
-    
-    for result in report_content["section5"]["results"]:
+
+    for result in report_content["section11"]["results"]:
         result_para = doc.add_paragraph(result, style='List Bullet')
         for run in result_para.runs:
             run.font.name = DOCX_FONT
-    
-    doc.add_page_break()
-    
-    # Section 6
-    sec6_heading = doc.add_heading(report_content["section6"]["title"], level=2)
-    sec6_heading.runs[0].font.name = DOCX_FONT
-    
+            run.font.size = Pt(10)
+
+    # Section 12
+    sec12_heading = doc.add_heading(report_content["section12"]["title"], level=2)
+    sec12_heading.runs[0].font.name = DOCX_FONT
+
     contrib_label = doc.add_paragraph("Key Contributions:")
     contrib_label.runs[0].font.name = DOCX_FONT
     contrib_label.runs[0].font.bold = True
-    
-    for contrib in report_content["section6"]["contributions"]:
+
+    for contrib in report_content["section12"]["contributions"]:
         contrib_para = doc.add_paragraph(contrib, style='List Bullet')
         for run in contrib_para.runs:
             run.font.name = DOCX_FONT
-    
+            run.font.size = Pt(10)
+
     future_label = doc.add_paragraph("\nFuture Enhancements:")
     future_label.runs[0].font.name = DOCX_FONT
     future_label.runs[0].font.bold = True
-    
-    for future in report_content["section6"]["future"]:
+
+    for future in report_content["section12"]["future"]:
         future_para = doc.add_paragraph(future, style='List Bullet')
         for run in future_para.runs:
             run.font.name = DOCX_FONT
-    
+            run.font.size = Pt(10)
+
     status_final = doc.add_paragraph("\nProject Status: ✅ Successfully Completed and Production-Ready")
     status_final.runs[0].font.name = DOCX_FONT
     status_final.runs[0].font.bold = True
@@ -255,7 +528,18 @@ def generate_pdf():
         'CustomBody',
         parent=styles['Normal'],
         fontName=PDF_FONT,
-        fontSize=10,
+        fontSize=9.5,
+        spaceAfter=6
+    )
+
+    mono_style = ParagraphStyle(
+        'MonospaceBody',
+        parent=styles['Code'],
+        fontName='Courier',
+        fontSize=7.6,
+        leading=8.4,
+        leftIndent=6,
+        rightIndent=6,
         spaceAfter=6
     )
     
@@ -277,8 +561,7 @@ def generate_pdf():
     
     # Section 3
     story.append(Paragraph(report_content["section3"]["title"], heading_style))
-    for obj in report_content["section3"]["objectives"][:5]:
-        story.append(Paragraph(f"<bullet>•</bullet> {obj}", body_style))
+    add_pdf_bullets(story, report_content["section3"]["objectives"], body_style)
     story.append(Spacer(1, 0.1*inch))
     
     # Section 4
@@ -286,20 +569,53 @@ def generate_pdf():
     story.append(Paragraph("<b>Technology Stack:</b>", body_style))
     for tech in report_content["section4"]["tech_stack"]:
         story.append(Paragraph(f"<bullet>•</bullet> {tech}", body_style))
+
+    story.append(Paragraph("<b>Core Modules:</b>", body_style))
+    for module, responsibility, feature in report_content["section4"]["modules"]:
+        story.append(Paragraph(f"<bullet>•</bullet> {module}: {responsibility} ({feature})", body_style))
+
+    story.append(PageBreak())
+
+    # Section 5 - Architecture
+    story.append(Paragraph(report_content["section5"]["title"], heading_style))
+    story.append(Paragraph(report_content["section5"]["overview"], body_style))
+    story.append(Paragraph("<b>Architecture Diagram:</b>", body_style))
+    story.append(Preformatted("\n".join(report_content["section5"]["diagram"]), mono_style))
+    story.append(Paragraph("<b>Component Interaction Notes:</b>", body_style))
+    add_pdf_bullets(story, report_content["section5"]["flow"], body_style)
+
+    story.append(PageBreak())
+
+    # Sections 6-9 Trade-off tables
+    for section_key in ["section6", "section7", "section8", "section9"]:
+        story.append(Paragraph(report_content[section_key]["title"], heading_style))
+        add_pdf_tradeoff_table(story, report_content[section_key], body_style)
+
+    story.append(PageBreak())
+
+    # Section 10
+    story.append(Paragraph(report_content["section10"]["title"], heading_style))
+    story.append(Paragraph("<b>Validation Checks:</b>", body_style))
+    add_pdf_bullets(story, report_content["section10"]["validation_points"], body_style)
+    story.append(Paragraph("<b>Quality Indicators:</b>", body_style))
+    add_pdf_bullets(story, report_content["section10"]["quality_metrics"], body_style)
+
     story.append(Spacer(1, 0.05*inch))
     
-    # Section 5
-    story.append(Paragraph(report_content["section5"]["title"], heading_style))
-    story.append(Paragraph(f"<b>Status:</b> {report_content['section5']['status']}", body_style))
-    for result in report_content["section5"]["results"][:3]:
-        story.append(Paragraph(f"<bullet>•</bullet> {result}", body_style))
+    # Section 11
+    story.append(Paragraph(report_content["section11"]["title"], heading_style))
+    story.append(Paragraph(f"<b>Status:</b> {report_content['section11']['status']}", body_style))
+    add_pdf_bullets(story, report_content["section11"]["results"], body_style)
     story.append(Spacer(1, 0.1*inch))
     
-    # Section 6
-    story.append(Paragraph(report_content["section6"]["title"], heading_style))
+    # Section 12
+    story.append(Paragraph(report_content["section12"]["title"], heading_style))
     story.append(Paragraph("<b>Key Contributions:</b>", body_style))
-    for contrib in report_content["section6"]["contributions"][:3]:
-        story.append(Paragraph(f"<bullet>•</bullet> {contrib}", body_style))
+    add_pdf_bullets(story, report_content["section12"]["contributions"], body_style)
+
+    story.append(Paragraph("<b>Future Enhancements:</b>", body_style))
+    add_pdf_bullets(story, report_content["section12"]["future"], body_style)
+
     story.append(Spacer(1, 0.05*inch))
     story.append(Paragraph("<b>Project Status:</b> ✅ Successfully Completed", body_style))
     
@@ -328,7 +644,7 @@ if __name__ == "__main__":
         print("\nFiles created in Summary folder:")
         print("  1. CVCreationUsingLLM_Project_Report.pdf")
         print("  2. CVCreationUsingLLM_Project_Report.docx")
-        print("\n✓ Both reports are 3 pages")
+        print("\n✓ Reports are expanded with architecture and trade-off analysis")
         print("✓ All fonts are cross-platform compatible")
         print("✓ Reports are production-ready")
     except Exception as e:

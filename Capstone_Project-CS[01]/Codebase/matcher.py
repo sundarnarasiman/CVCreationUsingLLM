@@ -20,6 +20,7 @@ Advantages over exact matching:
 import os
 import json
 import re
+import time
 from collections import Counter
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -52,18 +53,20 @@ class ProfileJobMatcher:
         self.semantic_threshold = 0.7  # Similarity threshold for counting as match
         self.embedding_cache = EMBEDDING_CACHE
     
-    def get_embedding(self, text):
-        """Get OpenAI embedding for text using text-embedding-3-small
+    def get_embedding(self, text, max_retries=3):
+        """Get OpenAI embedding for text using text-embedding-3-small with retry logic
         
         Enhancement: Semantic representation as 512-dimensional vector
         - Caches results to avoid redundant API calls
-        - Uses latest OpenAI embedding model
+        - Retry with exponential backoff for transient errors
+        - Graceful fallback on repeated failures
         
         Args:
             text (str): Text to embed
+            max_retries (int): Max retry attempts (default 3)
             
         Returns:
-            list: 512-dimensional embedding vector
+            list: 512-dimensional embedding vector, or None on failure (with fallback)
         """
         if client is None:
             return None
@@ -72,25 +75,50 @@ class ProfileJobMatcher:
         if text in self.embedding_cache:
             return self.embedding_cache[text]
         
-        try:
-            # Call OpenAI embedding API with timeout
-            response = client.embeddings.create(
-                input=text,
-                model=self.embedding_model,
-                timeout=10  # 10 second timeout per request
-            )
+        # Retry logic with exponential backoff
+        for attempt in range(max_retries):
+            try:
+                # Call OpenAI embedding API with timeout
+                response = client.embeddings.create(
+                    input=text,
+                    model=self.embedding_model,
+                    timeout=10  # 10 second timeout per request
+                )
+                
+                # Extract embedding
+                embedding = response.data[0].embedding
+                
+                # Cache for future calls
+                self.embedding_cache[text] = embedding
+                
+                return embedding
             
-            # Extract embedding
-            embedding = response.data[0].embedding
+            except TimeoutError as e:
+                wait_time = 2 ** attempt  # Exponential backoff: 1s, 2s, 4s
+                if attempt < max_retries - 1:
+                    print(f"⏱️  API timeout for '{text}' - retrying in {wait_time}s (attempt {attempt + 1}/{max_retries})")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    print(f"❌ API timeout failed after {max_retries} retries for '{text}'")
+                    return None
             
-            # Cache for future calls
-            self.embedding_cache[text] = embedding
-            
-            return embedding
-            
-        except Exception as e:
-            print(f"Warning: Error getting embedding for '{text}': {str(e)}")
-            return None
+            except Exception as e:
+                error_type = type(e).__name__
+                if 'rate' in str(e).lower():
+                    wait_time = 2 ** attempt
+                    if attempt < max_retries - 1:
+                        print(f"🔄 Rate limit hit - retrying in {wait_time}s (attempt {attempt + 1}/{max_retries})")
+                        time.sleep(wait_time)
+                        continue
+                
+                # For non-retryable errors, log and fail
+                print(f"⚠️  Error getting embedding for '{text}': {error_type} - {str(e)[:100]}")
+                if attempt == max_retries - 1:
+                    print(f"   → Skipping semantic analysis for this keyword")
+                    return None
+                
+        return None
     
     def cosine_similarity(self, vec_a, vec_b):
         """Calculate cosine similarity between two embedding vectors
@@ -121,7 +149,7 @@ class ProfileJobMatcher:
         return dot_product / (magnitude_a * magnitude_b)
     
     def calculate_semantic_similarity(self, profile_keywords, job_keywords):
-        """Calculate semantic similarity between profile and job keywords
+        """Calculate semantic similarity between profile and job keywords with error recovery
         
         ENHANCED ALGORITHM: OpenAI Embeddings + Cosine Similarity
         =========================================================
@@ -132,6 +160,7 @@ class ProfileJobMatcher:
         - Similarity < 0.70: No match (0.0 score)
         
         Returns: Average match score across all job keywords
+        With graceful fallback to partial results if API fails.
         
         Args:
             profile_keywords (list): Candidate's keywords
@@ -140,88 +169,129 @@ class ProfileJobMatcher:
         Returns:
             tuple: (semantic_match_percentage, matched_pairs_dict)
         """
-        if not job_keywords:
-            return 100.0, {}
-        
-        if not profile_keywords:
-            return 0.0, {}
-        
-        # OPTIMIZATION: Limit to top 30 keywords to avoid excessive API calls
-        # Only the most important keywords are needed for good matching
-        MAX_KEYWORDS = 30
-        profile_kws_limited = list(profile_keywords)[:MAX_KEYWORDS]
-        job_kws_limited = list(job_keywords)[:MAX_KEYWORDS]
-        
-        # Get embeddings for limited keywords (with caching)
-        profile_embeddings = {}
-        for kw in profile_kws_limited:
-            embedding = self.get_embedding(kw.lower())
-            if embedding:
-                profile_embeddings[kw] = embedding
-        
-        job_embeddings = {}
-        for kw in job_kws_limited:
-            embedding = self.get_embedding(kw.lower())
-            if embedding:
-                job_embeddings[kw] = embedding
-        
-        # Calculate similarity for each job keyword
-        matched_pairs = {}
-        similarity_scores = []
-        
-        for job_kw, job_embedding in job_embeddings.items():
-            if job_embedding is None:
-                continue
+        try:
+            if not job_keywords:
+                return 100.0, {}
             
-            # Find best match in profile keywords
-            best_match = None
-            best_similarity = 0.0
+            if not profile_keywords:
+                return 0.0, {}
             
-            for profile_kw, profile_embedding in profile_embeddings.items():
-                if profile_embedding is None:
+            # Input validation
+            profile_keywords = list(profile_keywords) if isinstance(profile_keywords, (list, set)) else []
+            job_keywords = list(job_keywords) if isinstance(job_keywords, (list, set)) else []
+            
+            if not profile_keywords or not job_keywords:
+                return 0.0, {}
+            
+            # OPTIMIZATION: Limit to top 30 keywords to avoid excessive API calls
+            MAX_KEYWORDS = 30
+            profile_kws_limited = profile_keywords[:MAX_KEYWORDS]
+            job_kws_limited = job_keywords[:MAX_KEYWORDS]
+            
+            # Get embeddings for limited keywords (with caching)
+            profile_embeddings = {}
+            for kw in profile_kws_limited:
+                try:
+                    embedding = self.get_embedding(str(kw).lower())
+                    if embedding:
+                        profile_embeddings[kw] = embedding
+                except Exception as e:
+                    print(f"    ⚠️  Failed to embed profile keyword '{kw}': {str(e)[:60]}")
+                    continue
+            
+            job_embeddings = {}
+            for kw in job_kws_limited:
+                try:
+                    embedding = self.get_embedding(str(kw).lower())
+                    if embedding:
+                        job_embeddings[kw] = embedding
+                except Exception as e:
+                    print(f"    ⚠️  Failed to embed job keyword '{kw}': {str(e)[:60]}")
+                    continue
+            
+            # Graceful fallback: if no embeddings available, return partial result
+            if not profile_embeddings or not job_embeddings:
+                print(f"    ⚠️  Could not get embeddings for semantic analysis (API issue) - using exact match only")
+                return 0.0, {}
+            
+            # Calculate similarity for each job keyword
+            matched_pairs = {}
+            similarity_scores = []
+            
+            for job_kw, job_embedding in job_embeddings.items():
+                if job_embedding is None:
                     continue
                 
-                # Calculate cosine similarity
-                similarity = self.cosine_similarity(job_embedding, profile_embedding)
+                # Find best match in profile keywords
+                best_match = None
+                best_similarity = 0.0
                 
-                if similarity > best_similarity:
-                    best_similarity = similarity
-                    best_match = profile_kw
+                for profile_kw, profile_embedding in profile_embeddings.items():
+                    if profile_embedding is None:
+                        continue
+                    
+                    # Calculate cosine similarity
+                    similarity = self.cosine_similarity(job_embedding, profile_embedding)
+                    
+                    if similarity > best_similarity:
+                        best_similarity = similarity
+                        best_match = profile_kw
+                
+                # Determine match strength
+                match_strength = 0.0
+                if best_similarity >= 0.85:
+                    match_strength = 1.0  # Strong match
+                elif best_similarity >= self.semantic_threshold:
+                    match_strength = best_similarity  # Moderate match
+                
+                # Store results
+                if best_match:
+                    matched_pairs[job_kw] = {
+                        'matched_to': best_match,
+                        'similarity': round(best_similarity, 3),
+                        'match_strength': match_strength
+                    }
+                    similarity_scores.append(match_strength)
             
-            # Determine match strength
-            match_strength = 0.0
-            if best_similarity >= 0.85:
-                match_strength = 1.0  # Strong match
-            elif best_similarity >= self.semantic_threshold:
-                match_strength = best_similarity  # Moderate match
+            # Calculate average semantic match
+            if similarity_scores:
+                semantic_match = (sum(similarity_scores) / len(job_keywords)) * 100
+            else:
+                semantic_match = 0.0
             
-            # Store results
-            if best_match:
-                matched_pairs[job_kw] = {
-                    'matched_to': best_match,
-                    'similarity': round(best_similarity, 3),
-                    'match_strength': match_strength
-                }
-                similarity_scores.append(match_strength)
+            return round(semantic_match, 2), matched_pairs
         
-        # Calculate average semantic match
-        if similarity_scores:
-            semantic_match = (sum(similarity_scores) / len(job_keywords)) * 100
-        else:
-            semantic_match = 0.0
-        
-        return round(semantic_match, 2), matched_pairs
+        except Exception as e:
+            print(f"❌ Error in semantic similarity calculation: {str(e)[:100]}")
+            print(f"   → Returning safe default (0.0)")
+            return 0.0, {}
     
     def extract_keywords_from_text(self, text):
-        """Extract meaningful keywords from text
+        """Extract meaningful keywords from text with input validation
         
         Algorithm: Tokenization with stop-word filtering
         - Regex: Match alphanumeric + [+#.] characters
         - Filter: Remove common English stop words
         - Threshold: Keep words with length > 2
+        - Input validation: Handle None/empty strings gracefully
         """
+        # Input validation with graceful handling
+        if not text:
+            return []
+        
+        if not isinstance(text, str):
+            try:
+                text = str(text)
+            except Exception as e:
+                print(f"⚠️  Warning: Could not convert input to string: {str(e)[:80]}")
+                return []
+        
         # Convert to lowercase and split into words
-        words = re.findall(r'\b[a-zA-Z][a-zA-Z0-9+#\.]*\b', text.lower())
+        try:
+            words = re.findall(r'\b[a-zA-Z][a-zA-Z0-9+#\.]*\b', text.lower())
+        except Exception as e:
+            print(f"⚠️  Warning: Error extracting keywords: {str(e)[:80]}")
+            return []
         
         # Filter out common stop words
         stop_words = {
@@ -471,18 +541,34 @@ class ProfileJobMatcher:
     
     def match_profile_to_job(self, profile_filepath, job_filepath):
         """
-        Complete matching workflow
+        Complete matching workflow with error handling
         """
         print("\n" + "="*60)
         print("PROFILE-JOB MATCHING")
         print("="*60 + "\n")
         
-        # Load data
-        with open(profile_filepath, 'r', encoding='utf-8') as f:
-            profile_data = json.load(f)
+        # Validate file existence
+        if not os.path.exists(profile_filepath):
+            raise FileNotFoundError(f"Profile file not found: {profile_filepath}")
+        if not os.path.exists(job_filepath):
+            raise FileNotFoundError(f"Job file not found: {job_filepath}")
         
-        with open(job_filepath, 'r', encoding='utf-8') as f:
-            job_data = json.load(f)
+        # Load data with error handling
+        try:
+            with open(profile_filepath, 'r', encoding='utf-8') as f:
+                profile_data = json.load(f)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON in profile file: {str(e)[:100]}")
+        except Exception as e:
+            raise Exception(f"Error reading profile file: {str(e)[:100]}")
+        
+        try:
+            with open(job_filepath, 'r', encoding='utf-8') as f:
+                job_data = json.load(f)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON in job file: {str(e)[:100]}")
+        except Exception as e:
+            raise Exception(f"Error reading job file: {str(e)[:100]}")
         
         # Calculate match
         match_result = self.calculate_match_score(profile_data, job_data)
@@ -525,21 +611,53 @@ class ProfileJobMatcher:
 
 
 def main():
-    """Test the matcher"""
+    """Test the matcher with comprehensive error handling"""
     matcher = ProfileJobMatcher()
     
     print("Profile-Job Matcher")
     print("="*60)
     
-    profile_path = input("\nEnter path to profile JSON: ").strip()
-    job_path = input("Enter path to job JSON: ").strip()
-    
-    try:
-        match_result = matcher.match_profile_to_job(profile_path, job_path)
-        print("\n✨ Matching complete!")
+    max_attempts = 3
+    for attempt in range(max_attempts):
+        try:
+            profile_path = input("\nEnter path to profile JSON: ").strip()
+            job_path = input("Enter path to job JSON: ").strip()
+            
+            # Validate inputs
+            if not profile_path or not job_path:
+                print("❌ Error: Both file paths are required")
+                continue
+            
+            match_result = matcher.match_profile_to_job(profile_path, job_path)
+            print("\n✨ Matching complete!")
+            break
         
-    except Exception as e:
-        print(f"\n❌ Error: {str(e)}")
+        except FileNotFoundError as e:
+            print(f"\n❌ File not found: {str(e)[:100]}")
+            if attempt < max_attempts - 1:
+                print(f"Try again (attempt {attempt + 2}/{max_attempts})...")
+            continue
+        
+        except ValueError as e:
+            print(f"\n❌ Invalid data format: {str(e)[:100]}")
+            print("   → Ensure files contain valid JSON data")
+            if attempt < max_attempts - 1:
+                retry = input("Try again? (y/n): ").strip().lower()
+                if retry != 'y':
+                    break
+            continue
+        
+        except Exception as e:
+            error_type = type(e).__name__
+            print(f"\n❌ {error_type}: {str(e)[:100]}")
+            if attempt < max_attempts - 1:
+                retry = input("Try again? (y/n): ").strip().lower()
+                if retry != 'y':
+                    break
+            continue
+    
+    if attempt == max_attempts - 1:
+        print(f"\n⚠️  Maximum attempts ({max_attempts}) reached. Exiting...")
 
 
 if __name__ == "__main__":

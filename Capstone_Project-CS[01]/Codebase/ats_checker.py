@@ -10,6 +10,7 @@ ENHANCEMENT: Semantic Similarity using OpenAI text-embedding-3-small
 import os
 import json
 import re
+import time
 from collections import Counter
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -47,26 +48,51 @@ class ATSChecker:
             'complex_formatting': r'{|}|\\begin|\\end',  # LaTeX-like
         }
     
-    def get_embedding(self, text):
-        """Get OpenAI embedding for text (with caching)"""
+    def get_embedding(self, text, max_retries=3):
+        """Get OpenAI embedding for text with retry logic and error recovery"""
         if client is None:
             return None
         
         if text in self.embedding_cache:
             return self.embedding_cache[text]
         
-        try:
-            response = client.embeddings.create(
-                input=text,
-                model=self.embedding_model,
-                timeout=10  # 10 second timeout per request
-            )
-            embedding = response.data[0].embedding
-            self.embedding_cache[text] = embedding
-            return embedding
-        except Exception as e:
-            print(f"Warning: Error getting embedding: {str(e)}")
-            return None
+        # Retry logic with exponential backoff
+        for attempt in range(max_retries):
+            try:
+                response = client.embeddings.create(
+                    input=text,
+                    model=self.embedding_model,
+                    timeout=10  # 10 second timeout per request
+                )
+                embedding = response.data[0].embedding
+                self.embedding_cache[text] = embedding
+                return embedding
+            
+            except TimeoutError as e:
+                wait_time = 2 ** attempt
+                if attempt < max_retries - 1:
+                    print(f"⏱️  ATS API timeout - retrying in {wait_time}s (attempt {attempt + 1}/{max_retries})")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    print(f"❌ ATS API timeout failed after {max_retries} retries")
+                    return None
+            
+            except Exception as e:
+                error_type = type(e).__name__
+                if 'rate' in str(e).lower():
+                    wait_time = 2 ** attempt
+                    if attempt < max_retries - 1:
+                        print(f"🔄 Rate limit hit - retrying in {wait_time}s (attempt {attempt + 1}/{max_retries})")
+                        time.sleep(wait_time)
+                        continue
+                
+                print(f"⚠️  Error getting embedding: {error_type} - {str(e)[:80]}")
+                if attempt == max_retries - 1:
+                    print(f"   → Skipping semantic analysis for this keyword")
+                    return None
+        
+        return None
     
     def cosine_similarity(self, vec_a, vec_b):
         """Calculate cosine similarity between embedding vectors"""

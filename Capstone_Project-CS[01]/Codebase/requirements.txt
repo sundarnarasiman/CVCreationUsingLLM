@@ -1,5 +1,6 @@
 # Core LLM and AI
 langchain>=1.2.13
+langchain-core>=0.3.0
 langchain-community>=0.4.1
 langchain-openai>=1.1.11
 openai>=2.26.0
@@ -11,7 +12,6 @@ python-dotenv>=1.0.0
 pdfplumber>=0.10.3
 python-docx>=1.1.0
 fpdf2>=2.7.6
-reportlab>=4.0.7
 
 # Note: Semantic similarity features (matcher.py, ats_checker.py)
 # Compatible with openai>=2.26.0

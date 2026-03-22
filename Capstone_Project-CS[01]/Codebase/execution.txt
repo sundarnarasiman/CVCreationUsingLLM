@@ -57,6 +57,9 @@ Select option (0-7): 1
 Enter path to your resume: input/profiles/my_resume.pdf
 Select (1/2): 1
 Enter path to job description file: input/jobs/job_description.txt
+📊 Match Score: 72/100
+🔍 Step 1: Analyzing profile-job match and creating strategy...
+   Match Score: 72/100
 Continue anyway? (y/n): y
 Would you like to review and revise the resume? (y/n): y
 Select option (1/2/3): 1
@@ -92,6 +95,8 @@ ATS Checker (Standalone):
 $ python ats_checker.py
 Enter path to resume JSON: resume.json
 Enter path to job JSON: job_parsed.json
+   🔍 ATS Semantic analysis (38.0% exact → checking semantics)...
+   ℹ️  Exact keyword match: 38.0%, then semantic expansion started, final keyword match: 64.2%.
 
 Profile-Job Matcher:
 $ python matcher.py
@@ -201,6 +206,7 @@ NOTES:
 8. Always export final resume in both PDF and DOCX formats
 9. Revision history is tracked automatically
 10. All intermediate files are kept for reference
+11. In Step 4, generation now displays the deterministic matcher score from Step 3 (for example, `72/100`) instead of an LLM-estimated percentage
 
 
 TERMINAL-ONLY EXECUTION:

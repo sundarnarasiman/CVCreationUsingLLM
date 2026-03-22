@@ -12,7 +12,14 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
 from dotenv import load_dotenv
 
+from exceptions import FileValidationError, DataValidationError, LLMResponseError
+from validators import validate_existing_file, validate_non_empty_text
+from logging_config import get_logger
+from messages import print_error, error_file_operation
+
 load_dotenv()
+
+logger = get_logger(__name__)
 
 
 class ResumeExtractor:
@@ -97,10 +104,25 @@ Be thorough and extract all relevant information."""),
         text = ""
         try:
             with pdfplumber.open(filepath) as pdf:
+                if len(pdf.pages) == 0:
+                    raise DataValidationError(
+                        f"❌ PDF is empty: {filepath}",
+                        {"path": filepath, "pages": 0}
+                    )
                 for page in pdf.pages:
-                    text += page.extract_text() + "\n"
+                    page_text = page.extract_text()
+                    if page_text:
+                        text += page_text + "\n"
+        except pdfplumber.exceptions.PDFException as e:
+            raise FileValidationError(
+                f"❌ Invalid PDF file: {filepath}",
+                {"path": filepath, "error": str(e)}
+            )
         except Exception as e:
-            raise Exception(f"Error reading PDF: {str(e)}")
+            raise FileValidationError(
+                error_file_operation(filepath, "read", e),
+                {"path": filepath, "error": str(e)}
+            )
         return text
     
     def extract_text_from_docx(self, filepath):
@@ -108,28 +130,58 @@ Be thorough and extract all relevant information."""),
         text = ""
         try:
             doc = Document(filepath)
+            if len(doc.paragraphs) == 0:
+                logger.warning(f"DOCX document has no paragraphs: {filepath}")
             for paragraph in doc.paragraphs:
-                text += paragraph.text + "\n"
+                if paragraph.text.strip():
+                    text += paragraph.text + "\n"
+        except FileNotFoundError:
+            raise FileValidationError(
+                f"❌ File not found: {filepath}",
+                {"path": filepath}
+            )
         except Exception as e:
-            raise Exception(f"Error reading DOCX: {str(e)}")
+            raise FileValidationError(
+                error_file_operation(filepath, "read", e),
+                {"path": filepath, "error": str(e)}
+            )
         return text
     
     def extract_text_from_txt(self, filepath):
-        """Extract text from TXT file"""
-        try:
-            with open(filepath, 'r', encoding='utf-8') as f:
-                text = f.read()
-        except Exception as e:
-            raise Exception(f"Error reading TXT: {str(e)}")
-        return text
+        """Extract text from TXT file with encoding fallback"""
+        encodings = ['utf-8', 'latin-1', 'cp1252', 'iso-8859-1']
+        
+        for encoding in encodings:
+            try:
+                with open(filepath, 'r', encoding=encoding) as f:
+                    text = f.read()
+                logger.debug(f"Successfully read {filepath} with encoding {encoding}")
+                return text
+            except UnicodeDecodeError:
+                logger.debug(f"Failed to read {filepath} with encoding {encoding}, trying next...")
+                continue
+            except IOError as e:
+                raise FileValidationError(
+                    f"❌ Cannot read file: {filepath}",
+                    {"path": filepath, "error": str(e)}
+                )
+        
+        # If all encodings failed
+        raise FileValidationError(
+            f"❌ File encoding error (expected UTF-8): {filepath}",
+            {"path": filepath, "tried_encodings": encodings}
+        )
     
     def convert_document_to_text(self, filepath):
         """
         Feature 1a: Document Conversion
         Convert PDF, Word, or TXT to plain text
         """
-        if not os.path.exists(filepath):
-            raise FileNotFoundError(f"File not found: {filepath}")
+        try:
+            validate_existing_file(filepath, "Resume file")
+        except FileValidationError as e:
+            logger.error(f"File validation failed: {e.message}")
+            raise
         
         file_extension = os.path.splitext(filepath)[1].lower()
         
@@ -142,13 +194,22 @@ Be thorough and extract all relevant information."""),
         elif file_extension == '.txt':
             return self.extract_text_from_txt(filepath)
         else:
-            raise ValueError(f"Unsupported file format: {file_extension}. Supported: PDF, DOCX, TXT")
+            raise FileValidationError(
+                f"❌ Unsupported file format: {file_extension}. Supported: PDF, DOCX, TXT",
+                {"path": filepath, "extension": file_extension}
+            )
     
     def extract_structured_data(self, resume_text):
         """
         Feature 1b: LLM-Based Extraction
         Use LangChain + GPT-4o-mini to extract structured JSON
         """
+        try:
+            validate_non_empty_text(resume_text, "Extracted resume text")
+        except DataValidationError as e:
+            logger.error(f"Resume text validation failed: {e.message}")
+            raise
+        
         print("🔍 Extracting structured data using LLM...")
         
         try:
@@ -156,6 +217,12 @@ Be thorough and extract all relevant information."""),
             
             # Parse the response content as JSON
             content = response.content
+            
+            if not content:
+                raise LLMResponseError(
+                    "❌ LLM returned empty response.",
+                    {"response": None}
+                )
             
             # Try to extract JSON from the response
             if isinstance(content, str):
@@ -165,17 +232,27 @@ Be thorough and extract all relevant information."""),
                 elif "```" in content:
                     content = content.split("```")[1].split("```")[0].strip()
                 
-                structured_data = json.loads(content)
+                try:
+                    structured_data = json.loads(content)
+                except json.JSONDecodeError as e:
+                    logger.error(f"JSON parse error: {str(e)}")
+                    logger.debug(f"Raw response (first 500 chars): {response.content[:500]}")
+                    raise LLMResponseError(
+                        "❌ LLM returned invalid JSON. Please try again.",
+                        {"json_error": str(e)}
+                    )
             else:
                 structured_data = content
             
             return structured_data
-        except json.JSONDecodeError as e:
-            print(f"⚠️  Warning: Could not parse JSON response. Error: {str(e)}")
-            print(f"Raw response: {response.content[:500]}...")
-            raise Exception("Failed to parse LLM response as JSON")
+        except LLMResponseError:
+            raise
         except Exception as e:
-            raise Exception(f"Error during extraction: {str(e)}")
+            logger.error(f"Extraction error: {str(e)}")
+            raise LLMResponseError(
+                f"❌ Error during extraction: {str(e)}",
+                {"error": str(e)}
+            )
     
     def save_to_json(self, data, output_path):
         """
@@ -202,25 +279,39 @@ Be thorough and extract all relevant information."""),
         print("FEATURE 1: RESUME DATA EXTRACTION")
         print("="*60 + "\n")
         
-        # Step 1: Document conversion
-        resume_text = self.convert_document_to_text(input_filepath)
-        
-        if not resume_text.strip():
-            raise ValueError("No text could be extracted from the document")
-        
-        print(f"📝 Extracted {len(resume_text)} characters of text\n")
-        
-        # Step 2: LLM extraction
-        structured_data = self.extract_structured_data(resume_text)
-        
-        # Step 3: Save to JSON
-        if output_filepath is None:
-            filename = os.path.splitext(os.path.basename(input_filepath))[0]
-            output_filepath = f"output/{filename}_extracted.json"
-        
-        self.save_to_json(structured_data, output_filepath)
-        
-        return structured_data
+        try:
+            # Step 1: Document conversion
+            resume_text = self.convert_document_to_text(input_filepath)
+            
+            try:
+                validate_non_empty_text(resume_text, "Extracted resume text")
+            except DataValidationError as e:
+                print(e.message)
+                logger.error(f"Resume text validation failed: {e.message}")
+                raise
+            
+            print(f"📝 Extracted {len(resume_text)} characters of text\n")
+            
+            # Step 2: LLM extraction
+            structured_data = self.extract_structured_data(resume_text)
+            
+            # Step 3: Save to JSON
+            if output_filepath is None:
+                filename = os.path.splitext(os.path.basename(input_filepath))[0]
+                output_filepath = f"output/{filename}_extracted.json"
+            
+            self.save_to_json(structured_data, output_filepath)
+            
+            return structured_data
+        except (FileValidationError, DataValidationError, LLMResponseError) as e:
+            print(e.message)
+            logger.error(f"Resume processing failed: {e.message}", extra={"debug": e.debug_info})
+            raise
+        except Exception as e:
+            error_msg = f"❌ Unexpected error during resume extraction: {str(e)}"
+            print(error_msg)
+            logger.error(error_msg, exc_info=True)
+            raise
 
 
 def main():

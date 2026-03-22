@@ -25,7 +25,12 @@ from collections import Counter
 from dotenv import load_dotenv
 from openai import OpenAI
 
+from exceptions import APIClientError
+from logging_config import get_logger
+
 load_dotenv()
+
+logger = get_logger(__name__)
 
 # Initialize OpenAI client with proper error handling
 try:

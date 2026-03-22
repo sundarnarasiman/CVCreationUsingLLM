@@ -9,7 +9,14 @@ from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from dotenv import load_dotenv
 
+from exceptions import FileValidationError, DataValidationError, LLMResponseError
+from validators import validate_existing_file, validate_required_keys
+from logging_config import get_logger
+from messages import error_file_operation
+
 load_dotenv()
+
+logger = get_logger(__name__)
 
 
 class ResumeGenerator:
@@ -167,25 +174,39 @@ Generate the optimized resume content.""")
     
     def load_profile_data(self, profile_filepath):
         """Load extracted profile data from JSON"""
-        if not os.path.exists(profile_filepath):
-            raise FileNotFoundError(f"Profile file not found: {profile_filepath}")
-        
-        with open(profile_filepath, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-        
-        print(f"📄 Loaded profile: {data.get('personal_details', {}).get('name', 'Unknown')}")
-        return data
+        try:
+            validate_existing_file(profile_filepath, "Profile file")
+            with open(profile_filepath, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            validate_required_keys(data, ['personal_details'], "Resume profile")
+            profile_name = data.get('personal_details', {}).get('name', 'Unknown')
+            print(f"📄 Loaded profile: {profile_name}")
+            logger.debug(f"Loaded profile from {profile_filepath}")
+            return data
+        except json.JSONDecodeError as e:
+            raise DataValidationError(f"❌ Invalid JSON in profile file: {profile_filepath}", {"path": profile_filepath, "error": str(e)})
+        except (FileValidationError, DataValidationError):
+            raise
+        except Exception as e:
+            raise FileValidationError(error_file_operation(profile_filepath, "read", e), {"path": profile_filepath, "error": str(e)})
     
     def load_job_data(self, job_filepath):
         """Load parsed job description from JSON"""
-        if not os.path.exists(job_filepath):
-            raise FileNotFoundError(f"Job file not found: {job_filepath}")
-        
-        with open(job_filepath, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-        
-        print(f"📄 Loaded job: {data.get('job_title', 'Unknown')}")
-        return data
+        try:
+            validate_existing_file(job_filepath, "Job description file")
+            with open(job_filepath, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            validate_required_keys(data, ['job_title'], "Job description")
+            job_title = data.get('job_title', 'Unknown')
+            print(f"📄 Loaded job: {job_title}")
+            logger.debug(f"Loaded job from {job_filepath}")
+            return data
+        except json.JSONDecodeError as e:
+            raise DataValidationError(f"❌ Invalid JSON in job file: {job_filepath}", {"path": job_filepath, "error": str(e)})
+        except (FileValidationError, DataValidationError):
+            raise
+        except Exception as e:
+            raise FileValidationError(error_file_operation(job_filepath, "read", e), {"path": job_filepath, "error": str(e)})
     
     def review_and_strategize(self, profile_data, job_data):
         """
@@ -276,40 +297,50 @@ Generate the optimized resume content.""")
         print("FEATURE 3: RESUME TAILORING AND GENERATION")
         print("="*60 + "\n")
         
-        # Load data
-        profile_data = self.load_profile_data(profile_filepath)
-        job_data = self.load_job_data(job_filepath)
-        
-        # Step 1: Strategic analysis
-        strategy = self.review_and_strategize(profile_data, job_data)
-        
-        # Step 2: Content generation
-        resume_content = self.generate_resume_content(strategy, profile_data, job_data)
-        
-        # Save resume data
-        if output_filepath is None:
-            candidate_name = profile_data.get('personal_details', {}).get('name', 'candidate')
-            # Handle None or empty name
-            if not candidate_name or candidate_name == 'None':
-                candidate_name = 'candidate'
-            candidate_name = candidate_name.replace(' ', '_').lower()
-            job_title = job_data.get('job_title', 'position')
-            if not job_title or job_title == 'None':
-                job_title = 'position'
-            job_title = job_title.replace(' ', '_').lower()
-            output_filepath = f"output/{candidate_name}_{job_title}_resume.json"
-        
-        self.save_resume_data(resume_content, output_filepath)
-        
-        # Also save the strategy for reference
-        strategy_path = output_filepath.replace('_resume.json', '_strategy.json')
-        with open(strategy_path, 'w', encoding='utf-8') as f:
-            json.dump(strategy, f, indent=2, ensure_ascii=False)
-        
-        print("\n✅ Resume generation complete!")
-        print(f"📊 Strategy saved to: {strategy_path}")
-        
-        return resume_content, strategy, output_filepath
+        try:
+            # Load data
+            profile_data = self.load_profile_data(profile_filepath)
+            job_data = self.load_job_data(job_filepath)
+            
+            # Step 1: Strategic analysis
+            strategy = self.review_and_strategize(profile_data, job_data)
+            
+            # Step 2: Content generation
+            resume_content = self.generate_resume_content(strategy, profile_data, job_data)
+            
+            # Save resume data
+            if output_filepath is None:
+                candidate_name = profile_data.get('personal_details', {}).get('name', 'candidate')
+                if not candidate_name or candidate_name == 'None':
+                    candidate_name = 'candidate'
+                candidate_name = candidate_name.replace(' ', '_').lower()
+                job_title = job_data.get('job_title', 'position')
+                if not job_title or job_title == 'None':
+                    job_title = 'position'
+                job_title = job_title.replace(' ', '_').lower()
+                output_filepath = f"output/{candidate_name}_{job_title}_resume.json"
+            
+            self.save_resume_data(resume_content, output_filepath)
+            
+            # Also save the strategy for reference
+            strategy_path = output_filepath.replace('_resume.json', '_strategy.json')
+            with open(strategy_path, 'w', encoding='utf-8') as f:
+                json.dump(strategy, f, indent=2, ensure_ascii=False)
+            
+            print("\n✅ Resume generation complete!")
+            print(f"📊 Strategy saved to: {strategy_path}")
+            
+            logger.info(f"Resume generation succeeded: {output_filepath}")
+            return resume_content, strategy, output_filepath
+        except (FileValidationError, DataValidationError, LLMResponseError) as e:
+            print(e.message)
+            logger.error(f"Resume generation failed: {e.message}", extra={"debug": e.debug_info})
+            raise
+        except Exception as e:
+            error_msg = f"❌ Unexpected error during resume generation: {str(e)}"
+            print(error_msg)
+            logger.error(error_msg, exc_info=True)
+            raise
 
 
 def main():

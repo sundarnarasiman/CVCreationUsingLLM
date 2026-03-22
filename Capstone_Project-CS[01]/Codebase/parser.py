@@ -9,7 +9,14 @@ from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from dotenv import load_dotenv
 
+from exceptions import FileValidationError, DataValidationError, LLMResponseError
+from validators import validate_existing_file, validate_non_empty_text
+from logging_config import get_logger
+from messages import error_file_operation
+
 load_dotenv()
+
+logger = get_logger(__name__)
 
 
 class JobDescriptionParser:
@@ -80,17 +87,33 @@ If any field is not present in the job description, use null or an empty array a
         Feature 2a: Accept Job Descriptions (file input)
         Read job description from a text file
         """
-        if not os.path.exists(filepath):
-            raise FileNotFoundError(f"File not found: {filepath}")
+        try:
+            validate_existing_file(filepath, "Job description file")
+        except FileValidationError as e:
+            logger.error(f"File validation failed: {e.message}")
+            raise
         
         try:
             with open(filepath, 'r', encoding='utf-8') as f:
                 content = f.read()
             
+            try:
+                validate_non_empty_text(content, "Job description")
+            except DataValidationError:
+                raise
+            
             print(f"📄 Read job description from: {os.path.basename(filepath)}")
+            logger.debug(f"Loaded job description from {filepath} ({len(content)} chars)")
             return content
+        except FileValidationError:
+            raise
+        except DataValidationError:
+            raise
         except Exception as e:
-            raise Exception(f"Error reading file: {str(e)}")
+            raise FileValidationError(
+                error_file_operation(filepath, "read", e),
+                {"path": filepath, "error": str(e)}
+            )
     
     def read_job_description_from_input(self):
         """
@@ -112,8 +135,11 @@ If any field is not present in the job description, use null or an empty array a
         
         job_description = '\n'.join(lines)
         
-        if not job_description.strip():
-            raise ValueError("No job description provided")
+        try:
+            validate_non_empty_text(job_description, "Job description")
+        except DataValidationError as e:
+            logger.error(f"Job description validation failed: {e.message}")
+            raise
         
         print("\n✅ Job description received")
         return job_description
@@ -123,13 +149,32 @@ If any field is not present in the job description, use null or an empty array a
         Feature 2b: LLM-Based Extraction
         Use LangChain + GPT-4o-mini to parse job requirements
         """
+        try:
+            validate_non_empty_text(job_text, "Job description text")
+        except DataValidationError as e:
+            logger.error(f"Job text validation failed: {e.message}")
+            raise
+        
         print("🔍 Parsing job description using LLM...")
         
         try:
             response = self.chain.invoke({"job_description": job_text})
             
+            # Validate response structure
+            if not response or not hasattr(response, 'content'):
+                raise LLMResponseError(
+                    "❌ Invalid response from LLM.",
+                    {"response_missing": True}
+                )
+            
             # Parse the response content as JSON
             content = response.content
+            
+            if not content:
+                raise LLMResponseError(
+                    "❌ LLM returned empty response.",
+                    {"response": None}
+                )
             
             # Try to extract JSON from the response
             if isinstance(content, str):
@@ -139,17 +184,35 @@ If any field is not present in the job description, use null or an empty array a
                 elif "```" in content:
                     content = content.split("```")[1].split("```")[0].strip()
                 
-                parsed_data = json.loads(content)
+                try:
+                    parsed_data = json.loads(content)
+                except json.JSONDecodeError as e:
+                    logger.error(f"JSON parse error: {str(e)}")
+                    logger.debug(f"Parse error at line {e.lineno}, column {e.colno}")
+                    raise LLMResponseError(
+                        "❌ LLM returned invalid JSON. Please try again.",
+                        {"json_error": str(e), "error_line": e.lineno}
+                    )
             else:
                 parsed_data = content
             
+            # Validate parsed data structure
+            if not isinstance(parsed_data, dict):
+                raise LLMResponseError(
+                    "❌ Unexpected response format from LLM.",
+                    {"expected_type": "dict", "actual_type": type(parsed_data).__name__}
+                )
+            
+            logger.debug(f"Successfully parsed job description with {len(parsed_data)} top-level keys")
             return parsed_data
-        except json.JSONDecodeError as e:
-            print(f"⚠️  Warning: Could not parse JSON response. Error: {str(e)}")
-            print(f"Raw response: {response.content[:500]}...")
-            raise Exception("Failed to parse LLM response as JSON")
+        except LLMResponseError:
+            raise
         except Exception as e:
-            raise Exception(f"Error during parsing: {str(e)}")
+            logger.error(f"Parsing error: {str(e)}")
+            raise LLMResponseError(
+                f"❌ Error during job parsing: {str(e)}",
+                {"error": str(e)}
+            )
     
     def save_to_json(self, data, output_path):
         """
@@ -176,33 +239,50 @@ If any field is not present in the job description, use null or an empty array a
         print("FEATURE 2: JOB DESCRIPTION PARSING")
         print("="*60 + "\n")
         
-        # Step 1: Get job description
-        if input_filepath:
-            job_text = self.read_job_description_from_file(input_filepath)
-        elif job_text is None:
-            job_text = self.read_job_description_from_input()
-        
-        if not job_text.strip():
-            raise ValueError("Job description is empty")
-        
-        print(f"📝 Processing {len(job_text)} characters of job description text\n")
-        
-        # Step 2: Parse using LLM
-        parsed_data = self.parse_job_description(job_text)
-        
-        # Step 3: Save to JSON
-        if output_filepath is None:
+        try:
+            # Step 1: Get job description
             if input_filepath:
-                filename = os.path.splitext(os.path.basename(input_filepath))[0]
-            else:
-                # Generate filename from job title if available
-                job_title = parsed_data.get('job_title', 'job').replace(' ', '_').lower()
-                filename = job_title
-            output_filepath = f"output/{filename}_parsed.json"
-        
-        self.save_to_json(parsed_data, output_filepath)
-        
-        return parsed_data
+                job_text = self.read_job_description_from_file(input_filepath)
+            elif job_text is None:
+                job_text = self.read_job_description_from_input()
+            
+            try:
+                validate_non_empty_text(job_text, "Job description")
+            except DataValidationError as e:
+                print(e.message)
+                logger.error(f"Job text validation failed: {e.message}")
+                raise
+            
+            print(f"📝 Processing {len(job_text)} characters of job description text\n")
+            
+            # Step 2: Parse using LLM
+            parsed_data = self.parse_job_description(job_text)
+            
+            # Step 3: Save to JSON
+            if output_filepath is None:
+                if input_filepath:
+                    filename = os.path.splitext(os.path.basename(input_filepath))[0]
+                else:
+                    # Generate filename from job title if available
+                    job_title = parsed_data.get('job_title', 'job')
+                    if job_title:
+                        filename = job_title.replace(' ', '_').lower()
+                    else:
+                        filename = 'job'
+                output_filepath = f"output/{filename}_parsed.json"
+            
+            self.save_to_json(parsed_data, output_filepath)
+            
+            return parsed_data
+        except (FileValidationError, DataValidationError, LLMResponseError) as e:
+            print(e.message)
+            logger.error(f"Job parsing failed: {e.message}", extra={"debug": e.debug_info})
+            raise
+        except Exception as e:
+            error_msg = f"❌ Unexpected error during job parsing: {str(e)}"
+            print(error_msg)
+            logger.error(error_msg, exc_info=True)
+            raise
 
 
 def main():

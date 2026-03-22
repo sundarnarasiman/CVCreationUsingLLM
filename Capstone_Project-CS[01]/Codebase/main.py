@@ -13,6 +13,10 @@ import os
 import sys
 from dotenv import load_dotenv
 
+from exceptions import CVSystemError, ConfigurationError, FileValidationError
+from logging_config import get_logger
+from messages import print_error, print_status
+
 # Import all modules
 from extractor import ResumeExtractor
 from parser import JobDescriptionParser
@@ -24,6 +28,8 @@ from matcher import ProfileJobMatcher
 
 # Load environment variables
 load_dotenv()
+
+logger = get_logger(__name__)
 
 
 class CVCreationSystem:

@@ -12,6 +12,12 @@ from docx import Document
 from docx.shared import Pt, Inches, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 
+from exceptions import ExportError, DataValidationError
+from validators import validate_required_keys
+from logging_config import get_logger
+
+logger = get_logger(__name__)
+
 
 class ResumePDFFormatter:
     """Generate PDF resume from JSON data"""

@@ -11,7 +11,16 @@ from langchain_core.prompts import ChatPromptTemplate
 from dotenv import load_dotenv
 from ats_checker import ATSChecker
 
+from exceptions import FileValidationError, DataValidationError, LLMResponseError
+from validators import validate_existing_file, validate_required_keys
+from logging_config import get_logger
+
 load_dotenv()
+
+logger = get_logger(__name__)
+
+# Maximum number of revision iterations to prevent infinite loops
+MAX_ITERATIONS = 5
 
 
 class ResumeReviser:
@@ -74,23 +83,35 @@ Revise the resume incorporating the user's edits and improving ATS compatibility
     
     def load_resume(self, resume_filepath):
         """Load current resume version"""
-        if not os.path.exists(resume_filepath):
-            raise FileNotFoundError(f"Resume file not found: {resume_filepath}")
-        
-        with open(resume_filepath, 'r', encoding='utf-8') as f:
-            resume = json.load(f)
-        
-        return resume
+        try:
+            validate_existing_file(resume_filepath, "Resume file")
+            with open(resume_filepath, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            validate_required_keys(data, ['resume_sections'], "Resume")
+            logger.debug(f"Loaded resume from {resume_filepath}")
+            return data
+        except json.JSONDecodeError as e:
+            raise DataValidationError(f"❌ Invalid JSON in resume file: {resume_filepath}", {"path": resume_filepath, "error": str(e)})
+        except (FileValidationError, DataValidationError):
+            raise
+        except Exception as e:
+            raise FileValidationError(f"❌ Cannot read resume file: {resume_filepath}", {"path": resume_filepath, "error": str(e)})
     
     def load_job_data(self, job_filepath):
         """Load job description data"""
-        if not os.path.exists(job_filepath):
-            raise FileNotFoundError(f"Job file not found: {job_filepath}")
-        
-        with open(job_filepath, 'r', encoding='utf-8') as f:
-            job_data = json.load(f)
-        
-        return job_data
+        try:
+            validate_existing_file(job_filepath, "Job file")
+            with open(job_filepath, 'r', encoding='utf-8') as f:
+                job_data = json.load(f)
+            validate_required_keys(job_data, ['job_title'], "Job description")
+            logger.debug(f"Loaded job from {job_filepath}")
+            return job_data
+        except json.JSONDecodeError as e:
+            raise DataValidationError(f"❌ Invalid JSON in job file: {job_filepath}", {"path": job_filepath, "error": str(e)})
+        except (FileValidationError, DataValidationError):
+            raise
+        except Exception as e:
+            raise FileValidationError(f"❌ Cannot read job file: {job_filepath}", {"path": job_filepath, "error": str(e)})
     
     def display_resume_summary(self, resume_content):
         """Display a summary of the current resume"""
@@ -253,8 +274,15 @@ Revise the resume incorporating the user's edits and improving ATS compatibility
         
         while True:
             iteration += 1
+            
+            # Check iteration limit
+            if iteration > MAX_ITERATIONS:
+                print(f"\n⏱️  Reached maximum iteration limit ({MAX_ITERATIONS}). Finalizing resume...")
+                logger.warning(f"Maximum iterations ({MAX_ITERATIONS}) reached. Finalizing.")
+                break
+            
             print(f"\n\n{'='*60}")
-            print(f"ITERATION {iteration}")
+            print(f"ITERATION {iteration}/{MAX_ITERATIONS}")
             print('='*60)
             
             # Display current state

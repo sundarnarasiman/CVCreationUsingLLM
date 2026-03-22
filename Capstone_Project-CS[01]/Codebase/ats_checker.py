@@ -32,6 +32,25 @@ except Exception as e:
 # Embedding cache shared across instances
 EMBEDDING_CACHE_ATS = {}
 
+TECHNICAL_PHRASES = [
+    'machine learning',
+    'deep learning',
+    'natural language',
+    'natural language processing',
+    'cloud infrastructure',
+    'distributed systems',
+    'data pipeline',
+    'data engineering',
+    'container orchestration',
+    'continuous integration',
+    'continuous delivery',
+    'ci/cd',
+    'rest api',
+    'backend engineering',
+    'software engineering',
+    'microservices',
+]
+
 
 class ATSChecker:
     """Analyze resume content for ATS compatibility
@@ -178,8 +197,26 @@ class ATSChecker:
         
         # Keep only significant words (length > 2 and not stopwords)
         keywords = [w for w in words if len(w) > 2 and w not in stop_words]
+        technical_phrases = self.extract_technical_phrases(text)
+        keywords = technical_phrases + keywords
         
         return keywords
+
+    def extract_technical_phrases(self, text):
+        """Extract curated 2-3 word technical phrases from text."""
+        if not text or not isinstance(text, str):
+            return []
+
+        text_lower = text.lower()
+        found_phrases = []
+
+        for phrase in TECHNICAL_PHRASES:
+            pattern = rf'(?<!\w){re.escape(phrase)}(?!\w)'
+            matches = re.findall(pattern, text_lower)
+            if matches:
+                found_phrases.extend([phrase] * len(matches))
+
+        return found_phrases
     
     def calculate_keyword_match(self, resume_content, job_data):
         """Calculate keyword match using HYBRID approach: fast exact + semantic + TF-WEIGHTED

@@ -42,6 +42,25 @@ except Exception as e:
 # Embedding cache to avoid redundant API calls
 EMBEDDING_CACHE = {}
 
+TECHNICAL_PHRASES = [
+    'machine learning',
+    'deep learning',
+    'natural language',
+    'natural language processing',
+    'cloud infrastructure',
+    'distributed systems',
+    'data pipeline',
+    'data engineering',
+    'container orchestration',
+    'continuous integration',
+    'continuous delivery',
+    'ci/cd',
+    'rest api',
+    'backend engineering',
+    'software engineering',
+    'microservices',
+]
+
 
 class ProfileJobMatcher:
     """Match candidate profiles to job descriptions using semantic similarity
@@ -308,7 +327,30 @@ class ProfileJobMatcher:
         }
         
         keywords = [w for w in words if len(w) > 2 and w not in stop_words]
+        technical_phrases = self.extract_technical_phrases(text)
+        keywords = technical_phrases + keywords
         return keywords
+
+    def extract_technical_phrases(self, text):
+        """Extract curated 2-3 word technical phrases from text.
+
+        This is intentionally conservative: only known high-signal phrases are
+        emitted, and repeated occurrences are counted to preserve frequency
+        weighting in downstream Counter-based ranking.
+        """
+        if not text or not isinstance(text, str):
+            return []
+
+        text_lower = text.lower()
+        found_phrases = []
+
+        for phrase in TECHNICAL_PHRASES:
+            pattern = rf'(?<!\w){re.escape(phrase)}(?!\w)'
+            matches = re.findall(pattern, text_lower)
+            if matches:
+                found_phrases.extend([phrase] * len(matches))
+
+        return found_phrases
     
     def extract_profile_keywords(self, profile_data):
         """Extract all keywords from a profile with TF (Term Frequency) weighting

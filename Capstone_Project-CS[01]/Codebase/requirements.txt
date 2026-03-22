@@ -1,9 +1,9 @@
 # Core LLM and AI
-langchain>=1.2.13
+langchain>=0.3.0
 langchain-core>=0.3.0
-langchain-community>=0.4.1
-langchain-openai>=1.1.11
-openai>=2.26.0
+langchain-community>=0.3.0
+langchain-openai>=0.2.0
+openai>=1.50.0
 
 # Environment and configuration
 python-dotenv>=1.0.0

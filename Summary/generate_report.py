@@ -46,10 +46,10 @@ report_content = {
     "section4": {
         "title": "4. Methodology",
         "tech_stack": [
-            "LangChain >=1.2.13 (with langchain-community and langchain-openai)",
+            "LangChain >=1.2.13 (with langchain-core, langchain-community, and langchain-openai)",
             "GPT-4o-mini (extraction), GPT-4o (generation)",
             "OpenAI text-embedding-3-small (semantic similarity)",
-            "pdfplumber, python-docx, fpdf2, reportlab",
+            "pdfplumber, python-docx, fpdf2",
             "Python 3.8+"
         ],
         "modules": [
@@ -241,7 +241,8 @@ report_content = {
             "End-to-end workflow verified from resume input to PDF/DOCX output.",
             "Semantic matching behavior validated with related-skill scenarios.",
             "ATS scoring feedback loop tested during iterative resume revision.",
-            "Error handling pathways tested for missing inputs, empty files, and invalid JSON responses."
+            "Error handling pathways tested for missing inputs, empty files, and invalid JSON responses.",
+            "Generation-step score consistency validated: Step 4 now surfaces deterministic matcher score from Step 3."
         ],
         "quality_metrics": [
             "Test suite: 53 tests, 0 failures, 0 errors, 0 skipped.",
@@ -249,7 +250,8 @@ report_content = {
             "Keyword ranking: frequency-weighted top-30 selection improves ATS precision over position-based selection.",
             "Multi-word phrase matching: 17 technical phrases detected and frequency-weighted correctly.",
             "Semantic relevance: improved matching quality over exact keyword overlap baselines.",
-            "Maintainability: modular design supports isolated updates by component."
+            "Maintainability: modular design supports isolated updates by component.",
+            "Output routing updated: generated artifacts are written directly under Codebase root."
         ]
     },
     
@@ -264,6 +266,9 @@ report_content = {
             "Priority 2: Curated n-gram phrase detection — 17 technical phrases with frequency preservation",
             "Priority 3: Threshold-based section-aware document chunking with structured merge in extractor.py and parser.py",
             "Semantic similarity matching integrated for profile-job matching and ATS keyword analysis",
+            "ATS logging enhanced with exact-to-semantic transition summary and final blended keyword-match output",
+            "Generation step now displays deterministic profile-job matcher score (instead of only LLM-estimated match score)",
+            "All generated resume artifacts now saved directly under Codebase root (not output subfolder)",
             "53/53 automated tests passing including dedicated chunking and merge coverage",
             "Cross-platform report and resume export support (PDF/DOCX)"
         ]

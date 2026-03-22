@@ -339,6 +339,10 @@ class ATSChecker:
         
         # Blend exact and semantic scores
         final_match_pct = (exact_match_pct * 0.4) + (semantic_match_pct * 0.6)
+        print(
+            f"    ℹ️  Exact keyword match: {exact_match_pct:.1f}%, "
+            f"then semantic expansion started, final keyword match: {final_match_pct:.1f}%."
+        )
         
         return final_match_pct, sorted(matched_keywords), sorted(missing_keywords)
     
@@ -482,7 +486,9 @@ class ATSChecker:
     
     def save_ats_feedback(self, feedback, output_path):
         """Save ATS feedback to JSON file"""
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        output_dir = os.path.dirname(output_path)
+        if output_dir:
+            os.makedirs(output_dir, exist_ok=True)
         
         with open(output_path, 'w', encoding='utf-8') as f:
             json.dump(feedback, f, indent=2, ensure_ascii=False)

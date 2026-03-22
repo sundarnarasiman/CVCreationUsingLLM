@@ -60,12 +60,12 @@ python main.py
 **Expected Output:**
 - The system will process the sample resume and job description
 - Generate a tailored resume optimized for the job
-- Export PDF and DOCX files to the `output/` folder
+- Export PDF and DOCX files to the `Codebase` folder
 - Total time: ~30-60 seconds
 
 ### Step 5: View Results
 ```bash
-ls output/
+ls
 ```
 
 You should see:

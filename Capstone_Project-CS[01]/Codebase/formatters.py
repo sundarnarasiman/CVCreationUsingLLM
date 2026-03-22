@@ -108,7 +108,9 @@ class ResumePDFFormatter:
                     print(f"⚠️  Skipping certifications section: {e}")
             
             # Save PDF
-            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+            output_dir = os.path.dirname(output_path)
+            if output_dir:
+                os.makedirs(output_dir, exist_ok=True)
             self.pdf.output(output_path)
             print(f"📄 PDF resume saved to: {output_path}")
         except Exception as e:
@@ -277,7 +279,9 @@ class ResumeDOCXFormatter:
             self._add_certifications_section(sections['certifications'])
         
         # Save DOCX
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        output_dir = os.path.dirname(output_path)
+        if output_dir:
+            os.makedirs(output_dir, exist_ok=True)
         self.doc.save(output_path)
         print(f"📄 DOCX resume saved to: {output_path}")
     

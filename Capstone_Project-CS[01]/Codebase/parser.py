@@ -409,7 +409,9 @@ If any field is not present in the job description, use null or an empty array a
         """
         print(f"💾 Saving parsed job data to: {output_path}")
         
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        output_dir = os.path.dirname(output_path)
+        if output_dir:
+            os.makedirs(output_dir, exist_ok=True)
         
         with open(output_path, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
@@ -457,7 +459,10 @@ If any field is not present in the job description, use null or an empty array a
                         filename = job_title.replace(' ', '_').lower()
                     else:
                         filename = 'job'
-                output_filepath = f"output/{filename}_parsed.json"
+                output_filepath = os.path.join(
+                    os.path.dirname(os.path.abspath(__file__)),
+                    f"{filename}_parsed.json"
+                )
             
             self.save_to_json(parsed_data, output_filepath)
             

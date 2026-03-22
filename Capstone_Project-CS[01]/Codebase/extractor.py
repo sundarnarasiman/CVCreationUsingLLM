@@ -429,7 +429,9 @@ Be thorough and extract all relevant information."""),
         """
         print(f"💾 Saving extracted data to: {output_path}")
         
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        output_dir = os.path.dirname(output_path)
+        if output_dir:
+            os.makedirs(output_dir, exist_ok=True)
         
         with open(output_path, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
@@ -466,7 +468,10 @@ Be thorough and extract all relevant information."""),
             # Step 3: Save to JSON
             if output_filepath is None:
                 filename = os.path.splitext(os.path.basename(input_filepath))[0]
-                output_filepath = f"output/{filename}_extracted.json"
+                output_filepath = os.path.join(
+                    os.path.dirname(os.path.abspath(__file__)),
+                    f"{filename}_extracted.json"
+                )
             
             self.save_to_json(structured_data, output_filepath)
             

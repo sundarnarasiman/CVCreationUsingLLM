@@ -208,7 +208,7 @@ Generate the optimized resume content.""")
         except Exception as e:
             raise FileValidationError(error_file_operation(job_filepath, "read", e), {"path": job_filepath, "error": str(e)})
     
-    def review_and_strategize(self, profile_data, job_data):
+    def review_and_strategize(self, profile_data, job_data, computed_match_score=None):
         """
         Feature 3c: Step 1 - Review Profile and Job Data
         LLM analyzes fit and creates tailoring strategy
@@ -233,7 +233,12 @@ Generate the optimized resume content.""")
             else:
                 strategy = content
             
-            match_score = strategy.get('match_score', 'N/A')
+            if computed_match_score is not None:
+                match_score = f"{computed_match_score}/100"
+                # Keep persisted strategy aligned with the deterministic matcher score.
+                strategy['match_score'] = match_score
+            else:
+                match_score = strategy.get('match_score', 'N/A')
             print(f"   Match Score: {match_score}")
             print(f"   Key Strengths: {len(strategy.get('key_strengths', []))}")
             print(f"   Must-Include Keywords: {len(strategy.get('keyword_strategy', {}).get('must_include', []))}")
@@ -280,12 +285,14 @@ Generate the optimized resume content.""")
         """Save generated resume data to JSON"""
         print(f"\n💾 Saving resume data to: {output_path}")
         
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        output_dir = os.path.dirname(output_path)
+        if output_dir:
+            os.makedirs(output_dir, exist_ok=True)
         
         with open(output_path, 'w', encoding='utf-8') as f:
             json.dump(resume_content, f, indent=2, ensure_ascii=False)
     
-    def process_resume_generation(self, profile_filepath, job_filepath, output_filepath=None):
+    def process_resume_generation(self, profile_filepath, job_filepath, output_filepath=None, computed_match_score=None):
         """
         Complete Feature 3 workflow:
         1. Load profile and job data
@@ -303,7 +310,7 @@ Generate the optimized resume content.""")
             job_data = self.load_job_data(job_filepath)
             
             # Step 1: Strategic analysis
-            strategy = self.review_and_strategize(profile_data, job_data)
+            strategy = self.review_and_strategize(profile_data, job_data, computed_match_score)
             
             # Step 2: Content generation
             resume_content = self.generate_resume_content(strategy, profile_data, job_data)
@@ -318,7 +325,10 @@ Generate the optimized resume content.""")
                 if not job_title or job_title == 'None':
                     job_title = 'position'
                 job_title = job_title.replace(' ', '_').lower()
-                output_filepath = f"output/{candidate_name}_{job_title}_resume.json"
+                output_filepath = os.path.join(
+                    os.path.dirname(os.path.abspath(__file__)),
+                    f"{candidate_name}_{job_title}_resume.json"
+                )
             
             self.save_resume_data(resume_content, output_filepath)
             

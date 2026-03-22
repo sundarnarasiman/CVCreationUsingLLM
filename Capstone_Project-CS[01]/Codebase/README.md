@@ -130,21 +130,21 @@ You can also run features independently:
 python extractor.py
 ```
 Input: Resume file (PDF/DOCX/TXT)
-Output: `output/<filename>_extracted.json`
+Output: `<filename>_extracted.json`
 
 #### Feature 2: Parse Job Description
 ```bash
 python parser.py
 ```
 Input: Job description file or paste
-Output: `output/job_parsed.json`
+Output: `job_parsed.json`
 
 #### Feature 3: Generate Tailored Resume
 ```bash
 python generator.py
 ```
 Input: Extracted profile JSON + Parsed job JSON
-Output: `output/<name>_<job>_resume.json`
+Output: `<name>_<job>_resume.json`
 
 #### Feature 4: Revise with ATS Feedback
 ```bash
@@ -184,7 +184,7 @@ Codebase/
 ├── input/
 │   ├── profiles/           # Place resume files here
 │   └── jobs/               # Place job descriptions here
-└── output/                 # All generated files
+└── <generated_files>        # Written directly in Codebase root
 ```
 
 ## 📊 ATS Scoring System
@@ -310,7 +310,7 @@ python main.py
 After running the complete workflow, you'll see files like:
 
 ```
-output/
+Codebase/
 ├── sample_resume_extracted.json       # Feature 1 output
 ├── job_parsed.json                    # Feature 2 output
 ├── john_doe_senior_engineer_resume.json  # Feature 3 output

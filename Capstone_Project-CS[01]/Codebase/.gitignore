@@ -19,9 +19,16 @@ __pycache__/
 *~
 
 # Output files
-output/*.json
-output/*.pdf
-output/*.docx
+*_extracted.json
+*_parsed.json
+*_resume.json
+*_strategy.json
+*_resume_v*.json
+*_resume_final.json
+*_resume_revision_history.json
+*_ats_feedback.json
+*_resume*.pdf
+*_resume*.docx
 
 # OS
 .DS_Store

@@ -80,27 +80,27 @@ Enter the path to the job description file: input/jobs/job.txt
 
 Feature 3 - Generate Tailored Resume:
 $ python generator.py
-Enter path to extracted profile JSON: output/resume_extracted.json
-Enter path to parsed job JSON: output/job_parsed.json
+Enter path to extracted profile JSON: resume_extracted.json
+Enter path to parsed job JSON: job_parsed.json
 
 Feature 4 - Revise with ATS Feedback:
 $ python reviser.py
-Enter path to resume JSON: output/resume.json
-Enter path to job JSON: output/job_parsed.json
+Enter path to resume JSON: resume.json
+Enter path to job JSON: job_parsed.json
 
 ATS Checker (Standalone):
 $ python ats_checker.py
-Enter path to resume JSON: output/resume.json
-Enter path to job JSON: output/job_parsed.json
+Enter path to resume JSON: resume.json
+Enter path to job JSON: job_parsed.json
 
 Profile-Job Matcher:
 $ python matcher.py
-Enter path to profile JSON: output/resume_extracted.json
-Enter path to job JSON: output/job_parsed.json
+Enter path to profile JSON: resume_extracted.json
+Enter path to job JSON: job_parsed.json
 
 Export to PDF/DOCX:
 $ python formatters.py
-Enter path to resume JSON: output/resume_final.json
+Enter path to resume JSON: resume_final.json
 Select (1/2/3): 3
 
 
@@ -128,7 +128,7 @@ Complete workflow with sample data:
    - Accept: 2
    - Export format: 3 (Both PDF and DOCX)
 
-4. Check outputs in output/ folder:
+4. Check outputs in Codebase folder:
    - john_doe_resume_extracted.json
    - job_parsed.json
    - john_doe_software_engineer_resume.json
@@ -141,26 +141,26 @@ EXPECTED OUTPUT FILES:
 ----------------------
 
 After Feature 1 (Extraction):
-- output/<resume_name>_extracted.json
+- <resume_name>_extracted.json
 
 After Feature 2 (Parsing):
-- output/<job_name>_parsed.json
+- <job_name>_parsed.json
 
 After Feature 3 (Generation):
-- output/<name>_<job>_resume.json
-- output/<name>_<job>_strategy.json
+- <name>_<job>_resume.json
+- <name>_<job>_strategy.json
 
 After Feature 4 (Revision):
-- output/<name>_<job>_resume_v1.json (iteration 1)
-- output/<name>_<job>_resume_v2.json (iteration 2)
+- <name>_<job>_resume_v1.json (iteration 1)
+- <name>_<job>_resume_v2.json (iteration 2)
 - ...
-- output/<name>_<job>_resume_final.json
-- output/<name>_<job>_resume_revision_history.json
-- output/<name>_<job>_resume_final_ats_feedback.json
+- <name>_<job>_resume_final.json
+- <name>_<job>_resume_revision_history.json
+- <name>_<job>_resume_final_ats_feedback.json
 
 After Export:
-- output/<name>_<job>_resume_final.pdf
-- output/<name>_<job>_resume_final.docx
+- <name>_<job>_resume_final.pdf
+- <name>_<job>_resume_final.docx
 
 
 TROUBLESHOOTING:
@@ -191,7 +191,7 @@ Solution: Wait a few seconds and try again, or check API quota
 NOTES:
 ------
 
-1. All output files are saved in the output/ folder
+1. All output files are saved in the Codebase folder
 2. Input files can be placed in input/profiles/ and input/jobs/ for organization
 3. The system uses GPT-4o-mini for extraction/parsing (cost-effective)
 4. The system uses GPT-4o for generation/revision (higher quality)

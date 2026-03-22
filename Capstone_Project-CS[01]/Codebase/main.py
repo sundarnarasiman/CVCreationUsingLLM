@@ -30,6 +30,7 @@ from matcher import ProfileJobMatcher
 load_dotenv()
 
 logger = get_logger(__name__)
+CODEBASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 class CVCreationSystem:
@@ -106,7 +107,8 @@ class CVCreationSystem:
                 return
             
             extracted_data = self.extractor.process_resume(resume_file)
-            profile_json = f"output/{os.path.splitext(os.path.basename(resume_file))[0]}_extracted.json"
+            profile_filename = f"{os.path.splitext(os.path.basename(resume_file))[0]}_extracted.json"
+            profile_json = os.path.join(CODEBASE_DIR, profile_filename)
             
             # Step 2: Parse job description
             print("\n📍 STEP 2/5: Job Description Parsing")
@@ -120,11 +122,12 @@ class CVCreationSystem:
             if job_choice == '1':
                 job_file = input("Enter path to job description file: ").strip()
                 parsed_job = self.parser.process_job_description(input_filepath=job_file)
-                job_json = f"output/{os.path.splitext(os.path.basename(job_file))[0]}_parsed.json"
+                job_filename = f"{os.path.splitext(os.path.basename(job_file))[0]}_parsed.json"
+                job_json = os.path.join(CODEBASE_DIR, job_filename)
             else:
                 parsed_job = self.parser.process_job_description()
                 job_title = parsed_job.get('job_title', 'job').replace(' ', '_').lower()
-                job_json = f"output/{job_title}_parsed.json"
+                job_json = os.path.join(CODEBASE_DIR, f"{job_title}_parsed.json")
             
             # Step 3: Check match score
             print("\n📍 STEP 3/5: Profile-Job Matching")
@@ -144,7 +147,9 @@ class CVCreationSystem:
             print("\n📍 STEP 4/5: Resume Generation")
             print("-" * 70)
             resume_content, strategy, resume_json = self.generator.process_resume_generation(
-                profile_json, job_json
+                profile_json,
+                job_json,
+                computed_match_score=match_result['overall_score']
             )
             
             # Step 5: Iterative revision

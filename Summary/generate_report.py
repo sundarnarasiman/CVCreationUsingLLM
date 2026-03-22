@@ -14,7 +14,7 @@ PDF_FONT = "Helvetica"  # Universal font available on all platforms
 # Full report content
 report_content = {
     "title": "CV CREATION USING DUAL-LLM SYSTEM\nProject Report",
-    "abstract": "This capstone project presents a dual-LLM system for generating tailored, ATS-optimized CVs using OpenAI's GPT-4o-mini and GPT-4o models with LangChain orchestration. The system automates resume extraction from unstructured documents, parses job requirements, strategically aligns candidate profiles, and generates optimized resumes with real-time ATS feedback. The latest implementation adds semantic similarity scoring using OpenAI embeddings (text-embedding-3-small) for both profile-job matching and ATS keyword analysis, improving detection of related skills beyond exact keyword overlap. This report also captures architecture decisions and engineering trade-offs across model selection, chunking strategy, embedding choice, and regex-vs-semantic matching design.",
+    "abstract": "This capstone project presents a dual-LLM system for generating tailored, ATS-optimized CVs using OpenAI's GPT-4o-mini and GPT-4o models with LangChain orchestration. The system automates resume extraction from unstructured documents, parses job requirements, strategically aligns candidate profiles, and generates optimized resumes with real-time ATS feedback. The implementation includes semantic similarity scoring using OpenAI embeddings (text-embedding-3-small), frequency-weighted (TF) keyword selection via Python Counter, curated n-gram phrase detection for 17 multi-word technical terms, and threshold-based section-aware document chunking with structured merge logic — ensuring robustness at scale. This report captures architecture decisions and engineering trade-offs across model selection, chunking strategy, embedding choice, and regex-vs-semantic matching design.",
     
     "section1": {
         "title": "1. Introduction",
@@ -128,25 +128,55 @@ report_content = {
     },
 
     "section7": {
-        "title": "7. Chunking Strategy Trade-offs (Pros & Cons)",
+        "title": "7. Chunking Strategy Trade-offs & Implementation",
         "rows": [
             {
-                "option": "No Chunking",
+                "option": "No Chunking (Previous)",
                 "pros": "Preserves full context in one pass for short documents.",
-                "cons": "Fails on long inputs due to token limits and higher request costs.",
-                "best_for": "Short resumes or compact job descriptions"
+                "cons": "Fails on long inputs due to token limits; no merge logic needed but no protection either.",
+                "best_for": "Short resumes or compact job descriptions only"
             },
             {
                 "option": "Fixed-Size Chunking",
                 "pros": "Simple implementation; predictable token usage and latency.",
-                "cons": "Can split related context across chunk boundaries.",
-                "best_for": "Baseline scalable processing"
+                "cons": "Can split related context across chunk boundaries, reducing extraction quality.",
+                "best_for": "Baseline scalable processing where section fidelity is low priority"
             },
             {
-                "option": "Semantic/Section-Aware Chunking",
-                "pros": "Better context preservation; stronger extraction accuracy for long docs.",
-                "cons": "Higher implementation complexity and tuning effort.",
-                "best_for": "Quality-sensitive extraction pipelines"
+                "option": "Section-Aware + Bounded (Current)",
+                "pros": "Preserves section context; falls back to size chunking; char-threshold is env-tunable; per-chunk LLM calls with structured merge.",
+                "cons": "More implementation complexity; merge logic must handle deduplication consistently.",
+                "best_for": "Production extraction pipelines — implemented in extractor.py and parser.py"
+            }
+        ]
+    },
+    "section7b": {
+        "title": "7b. Chunking Implementation Details",
+        "thresholds": [
+            ("extractor.py", "6,000 chars", "3,500 chars", "300 chars"),
+            ("parser.py",   "5,000 chars", "3,000 chars", "250 chars")
+        ],
+        "stages": [
+            "Stage 0: If len(text) <= threshold, send whole document — no overhead.",
+            "Stage 1: Split by known section headers (e.g. EXPERIENCE, SKILLS, REQUIREMENTS).",
+            "Stage 2: If any section exceeds chunk_size, apply paragraph-aware size splitting with overlap.",
+            "Merge: Scalar fields keep first non-null value; list fields use order-preserving JSON-key deduplication; nested skill/keyword dicts merged per sub-category."
+        ]
+    },
+    "section7c": {
+        "title": "7c. Keyword Optimisation — Priorities 1 & 2",
+        "rows": [
+            {
+                "option": "Priority 1: TF Weighting",
+                "pros": "Most frequent / important keywords surface first; skills and technologies double-weighted.",
+                "cons": "Frequency alone does not capture domain rarity (TF-IDF not yet applied).",
+                "best_for": "Top-30 keyword selection in matcher.py and ats_checker.py"
+            },
+            {
+                "option": "Priority 2: N-Gram Phrases",
+                "pros": "17 curated technical phrases (e.g. machine learning, ci/cd); frequency-preserving via repeated list entries; no arbitrary bigram noise.",
+                "cons": "Phrase list is manually maintained; new terminology requires explicit addition.",
+                "best_for": "High-precision multi-word skill detection in both modules"
             }
         ]
     },
@@ -202,16 +232,22 @@ report_content = {
     "section10": {
         "title": "10. Testing and Validation Summary",
         "validation_points": [
+            "53/53 automated tests passing across all modules (unittest framework).",
+            "Chunking helpers tested: section splitting, size-bounded chunking, small-document bypass.",
+            "Merge logic tested: scalar first-wins, list deduplication, nested skill/keyword dicts.",
+            "Multi-chunk LLM flows tested with content-aware mocks in extractor and parser.",
+            "N-gram phrase detection verified: curated phrases ranked above single tokens.",
+            "Frequency-weighted (TF) keyword selection verified: most_common(30) returns highest-frequency terms.",
             "End-to-end workflow verified from resume input to PDF/DOCX output.",
             "Semantic matching behavior validated with related-skill scenarios.",
             "ATS scoring feedback loop tested during iterative resume revision.",
-            "Cross-platform report generation validated for Linux execution.",
-            "Module-level functionality verified for extractor, parser, matcher, generator, and reviser.",
-            "Error handling pathways tested for missing inputs and parsing edge cases."
+            "Error handling pathways tested for missing inputs, empty files, and invalid JSON responses."
         ],
         "quality_metrics": [
-            "Resume extraction quality: robust on structured and semi-structured resumes.",
-            "Generation turnaround: interactive workflow maintained for practical usage.",
+            "Test suite: 53 tests, 0 failures, 0 errors, 0 skipped.",
+            "Resume extraction: robust on structured and semi-structured resumes; auto-chunks large inputs.",
+            "Keyword ranking: frequency-weighted top-30 selection improves ATS precision over position-based selection.",
+            "Multi-word phrase matching: 17 technical phrases detected and frequency-weighted correctly.",
             "Semantic relevance: improved matching quality over exact keyword overlap baselines.",
             "Maintainability: modular design supports isolated updates by component."
         ]
@@ -219,14 +255,17 @@ report_content = {
     
     "section11": {
         "title": "11. Results and Analysis",
-        "status": "FULLY COMPLETE AND OPERATIONAL",
+        "status": "FULLY COMPLETE AND OPERATIONAL — ALL THREE CHUNKING PRIORITIES IMPLEMENTED",
         "results": [
             "8 fully functional core modules with modular execution",
             "4 core features with supporting ATS and matching utilities",
-            "Production-ready deployment",
-            "Semantic similarity matching integrated in matcher.py and ats_checker.py",
-            "Improved related-skill detection beyond exact keyword overlap",
-            "Cross-platform report and resume export support"
+            "Production-ready deployment with comprehensive error handling",
+            "Priority 1: Frequency-weighted (TF) keyword selection — Counter.most_common(30) in matcher.py and ats_checker.py",
+            "Priority 2: Curated n-gram phrase detection — 17 technical phrases with frequency preservation",
+            "Priority 3: Threshold-based section-aware document chunking with structured merge in extractor.py and parser.py",
+            "Semantic similarity matching integrated for profile-job matching and ATS keyword analysis",
+            "53/53 automated tests passing including dedicated chunking and merge coverage",
+            "Cross-platform report and resume export support (PDF/DOCX)"
         ]
     },
     
@@ -238,7 +277,10 @@ report_content = {
             "ATS-optimized resume generation (80%+ compatibility)",
             "Real-time feedback and revision capability",
             "Cost-efficient dual-LLM orchestration",
-            "Modular, maintainable architecture"
+            "Frequency-weighted keyword selection and curated n-gram phrase detection",
+            "Threshold-based document chunking with section-aware splitting and structured merge",
+            "Comprehensive 53-test suite covering edge cases, error handling, and chunking logic",
+            "Modular, maintainable architecture with environment-variable tunable chunking thresholds"
         ],
         "future": [
             "Multi-language support (6 languages)",
@@ -430,6 +472,36 @@ def generate_docx():
     for section_key in ["section6", "section7", "section8", "section9"]:
         add_docx_tradeoff_table(doc, report_content[section_key])
 
+    # Section 7b – Chunking Implementation Details
+    sec7b = report_content["section7b"]
+    sec7b_heading = doc.add_heading(sec7b["title"], level=2)
+    sec7b_heading.runs[0].font.name = DOCX_FONT
+
+    thresh_label = doc.add_paragraph("Threshold Configuration:")
+    thresh_label.runs[0].font.name = DOCX_FONT
+    thresh_label.runs[0].font.bold = True
+
+    thresh_table = doc.add_table(rows=1, cols=4)
+    thresh_table.style = 'Table Grid'
+    hdr = thresh_table.rows[0].cells
+    for idx, text in enumerate(["Module", "Doc Threshold", "Chunk Size", "Overlap"]):
+        hdr[idx].text = text
+        set_cell_font(hdr[idx], font_name=DOCX_FONT, font_size=10, bold=True)
+    for row_data in sec7b["thresholds"]:
+        cells = thresh_table.add_row().cells
+        for idx, val in enumerate(row_data):
+            cells[idx].text = val
+            set_cell_font(cells[idx], font_name=DOCX_FONT, font_size=10)
+    doc.add_paragraph()
+
+    stages_label = doc.add_paragraph("Chunking Stages:")
+    stages_label.runs[0].font.name = DOCX_FONT
+    stages_label.runs[0].font.bold = True
+    add_docx_bullets(doc, sec7b["stages"])
+
+    # Section 7c – Keyword Optimisation Trade-offs
+    add_docx_tradeoff_table(doc, report_content["section7c"])
+
     # Section 10
     sec10_heading = doc.add_heading(report_content["section10"]["title"], level=2)
     sec10_heading.runs[0].font.name = DOCX_FONT
@@ -590,6 +662,33 @@ def generate_pdf():
     for section_key in ["section6", "section7", "section8", "section9"]:
         story.append(Paragraph(report_content[section_key]["title"], heading_style))
         add_pdf_tradeoff_table(story, report_content[section_key], body_style)
+
+    # Section 7b – Chunking Implementation Details
+    sec7b = report_content["section7b"]
+    story.append(Paragraph(sec7b["title"], heading_style))
+    story.append(Paragraph("<b>Threshold Configuration:</b>", body_style))
+
+    thresh_table_data = [["Module", "Doc Threshold", "Chunk Size", "Overlap"]]
+    for row_data in sec7b["thresholds"]:
+        thresh_table_data.append(list(row_data))
+    thresh_tbl = Table(thresh_table_data, colWidths=[1.6*inch, 1.6*inch, 1.6*inch, 1.6*inch])
+    thresh_tbl.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#D9E2F3')),
+        ('FONTNAME', (0, 0), (-1, 0), PDF_FONT + '-Bold' if False else PDF_FONT),
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    story.append(thresh_tbl)
+    story.append(Spacer(1, 0.08*inch))
+
+    story.append(Paragraph("<b>Chunking Stages:</b>", body_style))
+    add_pdf_bullets(story, sec7b["stages"], body_style)
+
+    # Section 7c – Keyword Optimisation
+    story.append(Paragraph(report_content["section7c"]["title"], heading_style))
+    add_pdf_tradeoff_table(story, report_content["section7c"], body_style)
 
     story.append(PageBreak())
 

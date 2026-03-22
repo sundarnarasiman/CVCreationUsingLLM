@@ -5,6 +5,7 @@ Extracts structured information from unstructured resume documents (PDF/Word/TXT
 
 import os
 import json
+import re
 import pdfplumber
 from docx import Document
 from langchain_openai import ChatOpenAI
@@ -20,6 +21,21 @@ from messages import print_error, error_file_operation
 load_dotenv()
 
 logger = get_logger(__name__)
+
+EXTRACTOR_CHUNKING_THRESHOLD = int(os.getenv("EXTRACTOR_CHUNKING_THRESHOLD", "6000"))
+EXTRACTOR_CHUNK_SIZE = int(os.getenv("EXTRACTOR_CHUNK_SIZE", "3500"))
+EXTRACTOR_CHUNK_OVERLAP = int(os.getenv("EXTRACTOR_CHUNK_OVERLAP", "300"))
+RESUME_SECTION_HEADERS = [
+    "professional summary",
+    "summary",
+    "experience",
+    "work experience",
+    "skills",
+    "education",
+    "projects",
+    "certifications",
+    "achievements",
+]
 
 
 class ResumeExtractor:
@@ -98,6 +114,180 @@ Be thorough and extract all relevant information."""),
         ])
         
         self.chain = self.extraction_prompt | self.llm
+    
+    def split_text_into_sections(self, text, section_headers=None):
+        """Split resume text into semantic sections using common resume headings."""
+        if not text or not isinstance(text, str):
+            return []
+
+        section_headers = section_headers or RESUME_SECTION_HEADERS
+        normalized_headers = {header.lower() for header in section_headers}
+        sections = []
+        current_lines = []
+
+        for line in text.splitlines():
+            stripped = line.strip()
+            normalized = stripped.rstrip(':').lower()
+
+            if normalized in normalized_headers:
+                if current_lines:
+                    section_text = "\n".join(current_lines).strip()
+                    if section_text:
+                        sections.append(section_text)
+                current_lines = [stripped]
+                continue
+
+            if stripped or current_lines:
+                current_lines.append(line)
+
+        if current_lines:
+            section_text = "\n".join(current_lines).strip()
+            if section_text:
+                sections.append(section_text)
+
+        return sections if len(sections) > 1 else []
+
+    def chunk_text_by_size(self, text, max_chars=None, overlap_chars=None):
+        """Split oversized text into bounded chunks with small overlap."""
+        if not text or not isinstance(text, str):
+            return []
+
+        max_chars = max_chars or EXTRACTOR_CHUNK_SIZE
+        overlap_chars = overlap_chars if overlap_chars is not None else EXTRACTOR_CHUNK_OVERLAP
+
+        if len(text) <= max_chars:
+            return [text.strip()]
+
+        paragraphs = [paragraph.strip() for paragraph in re.split(r'\n\s*\n', text) if paragraph.strip()]
+        if not paragraphs:
+            paragraphs = [text.strip()]
+
+        chunks = []
+        current = ""
+
+        for paragraph in paragraphs:
+            candidate = f"{current}\n\n{paragraph}".strip() if current else paragraph
+            if len(candidate) <= max_chars:
+                current = candidate
+                continue
+
+            if current:
+                chunks.append(current)
+                overlap = current[-overlap_chars:].strip() if overlap_chars > 0 else ""
+                current = f"{overlap}\n\n{paragraph}".strip() if overlap else paragraph
+            else:
+                start = 0
+                while start < len(paragraph):
+                    end = min(start + max_chars, len(paragraph))
+                    chunk = paragraph[start:end].strip()
+                    if chunk:
+                        chunks.append(chunk)
+                    if end >= len(paragraph):
+                        current = ""
+                        break
+                    start = max(0, end - overlap_chars)
+
+        if current:
+            chunks.append(current)
+
+        return chunks
+
+    def maybe_chunk_document(self, text):
+        """Chunk large resumes by section first, then by bounded size if needed."""
+        if len(text) <= EXTRACTOR_CHUNKING_THRESHOLD:
+            return [text]
+
+        sections = self.split_text_into_sections(text)
+        candidate_sections = sections or [text]
+        chunks = []
+
+        for section in candidate_sections:
+            if len(section) <= EXTRACTOR_CHUNK_SIZE:
+                chunks.append(section)
+            else:
+                chunks.extend(self.chunk_text_by_size(section))
+
+        return chunks or [text]
+
+    def _parse_llm_response(self, response):
+        """Parse and validate a single LLM response payload."""
+        content = response.content
+
+        if not content:
+            raise LLMResponseError(
+                "❌ LLM returned empty response.",
+                {"response": None}
+            )
+
+        if isinstance(content, str):
+            if "```json" in content:
+                content = content.split("```json")[1].split("```")[0].strip()
+            elif "```" in content:
+                content = content.split("```")[1].split("```")[0].strip()
+
+            try:
+                return json.loads(content)
+            except json.JSONDecodeError as e:
+                logger.error(f"JSON parse error: {str(e)}")
+                logger.debug(f"Raw response (first 500 chars): {response.content[:500]}")
+                raise LLMResponseError(
+                    "❌ LLM returned invalid JSON. Please try again.",
+                    {"json_error": str(e)}
+                )
+
+        return content
+
+    def _merge_list_values(self, items):
+        """Merge list values with order-preserving deduplication."""
+        merged = []
+        seen = set()
+
+        for item in items or []:
+            key = json.dumps(item, sort_keys=True, ensure_ascii=False) if isinstance(item, (dict, list)) else str(item)
+            if key not in seen:
+                seen.add(key)
+                merged.append(item)
+
+        return merged
+
+    def merge_structured_data(self, chunk_results):
+        """Merge chunked extraction results into a single structured profile."""
+        merged = {
+            "personal_details": {},
+            "education": [],
+            "work_experience": [],
+            "skills": {
+                "technical": [],
+                "soft": [],
+                "languages": [],
+                "tools": [],
+            },
+            "projects": [],
+            "certifications": [],
+            "achievements": [],
+        }
+
+        for result in chunk_results:
+            if not isinstance(result, dict):
+                continue
+
+            for key, value in (result.get("personal_details") or {}).items():
+                if value and not merged["personal_details"].get(key):
+                    merged["personal_details"][key] = value
+
+            merged["education"] = self._merge_list_values(merged["education"] + (result.get("education") or []))
+            merged["work_experience"] = self._merge_list_values(merged["work_experience"] + (result.get("work_experience") or []))
+            merged["projects"] = self._merge_list_values(merged["projects"] + (result.get("projects") or []))
+            merged["certifications"] = self._merge_list_values(merged["certifications"] + (result.get("certifications") or []))
+            merged["achievements"] = self._merge_list_values(merged["achievements"] + (result.get("achievements") or []))
+
+            result_skills = result.get("skills") or {}
+            for skill_key in merged["skills"]:
+                merged["skills"][skill_key] = self._merge_list_values(
+                    merged["skills"][skill_key] + (result_skills.get(skill_key) or [])
+                )
+
+        return merged
     
     def extract_text_from_pdf(self, filepath):
         """Extract text from PDF file"""
@@ -213,38 +403,16 @@ Be thorough and extract all relevant information."""),
         print("🔍 Extracting structured data using LLM...")
         
         try:
-            response = self.chain.invoke({"resume_text": resume_text})
+            chunks = self.maybe_chunk_document(resume_text)
+            if len(chunks) > 1:
+                logger.info(f"Chunking large resume into {len(chunks)} chunks for extraction")
             
-            # Parse the response content as JSON
-            content = response.content
+            chunk_results = []
+            for chunk in chunks:
+                response = self.chain.invoke({"resume_text": chunk})
+                chunk_results.append(self._parse_llm_response(response))
             
-            if not content:
-                raise LLMResponseError(
-                    "❌ LLM returned empty response.",
-                    {"response": None}
-                )
-            
-            # Try to extract JSON from the response
-            if isinstance(content, str):
-                # Handle code blocks if present
-                if "```json" in content:
-                    content = content.split("```json")[1].split("```")[0].strip()
-                elif "```" in content:
-                    content = content.split("```")[1].split("```")[0].strip()
-                
-                try:
-                    structured_data = json.loads(content)
-                except json.JSONDecodeError as e:
-                    logger.error(f"JSON parse error: {str(e)}")
-                    logger.debug(f"Raw response (first 500 chars): {response.content[:500]}")
-                    raise LLMResponseError(
-                        "❌ LLM returned invalid JSON. Please try again.",
-                        {"json_error": str(e)}
-                    )
-            else:
-                structured_data = content
-            
-            return structured_data
+            return chunk_results[0] if len(chunk_results) == 1 else self.merge_structured_data(chunk_results)
         except LLMResponseError:
             raise
         except Exception as e:

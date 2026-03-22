@@ -1,0 +1,24 @@
+John Doe
+Senior Software Engineer
+New York, NY
+john.doe@example.com | +1-555-0101 | linkedin.com/in/johndoe
+
+PROFESSIONAL SUMMARY
+Senior software engineer with 7 years of experience building distributed systems,
+improving platform reliability, and leading backend modernization projects.
+
+EXPERIENCE
+Senior Software Engineer | Example Corp | Jan 2021 - Present
+- Led migration of legacy services to Python-based microservices.
+- Improved deployment reliability by 35% through CI/CD automation.
+- Mentored 4 engineers and established code review standards.
+
+Software Engineer | Startup Labs | Jun 2018 - Dec 2020
+- Built internal APIs using Python and FastAPI.
+- Partnered with product managers to deliver customer-facing features.
+
+SKILLS
+Python, FastAPI, Docker, Kubernetes, SQL, GitHub Actions, Leadership
+
+EDUCATION
+Bachelor of Engineering in Computer Science

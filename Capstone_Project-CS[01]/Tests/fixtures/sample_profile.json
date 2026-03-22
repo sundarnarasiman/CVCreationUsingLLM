@@ -1,0 +1,40 @@
+{
+  "personal_details": {
+    "name": "John Doe",
+    "email": "john.doe@example.com",
+    "phone": "+1-555-0101",
+    "location": "New York, NY",
+    "linkedin": "linkedin.com/in/johndoe",
+    "portfolio": "johndoe.dev"
+  },
+  "education": [
+    {
+      "degree": "Bachelor of Engineering in Computer Science",
+      "institution": "Example University",
+      "graduation_date": "2020",
+      "honors": "Magna Cum Laude"
+    }
+  ],
+  "work_experience": [
+    {
+      "job_title": "Senior Software Engineer",
+      "company": "Example Corp",
+      "location": "New York, NY",
+      "start_date": "2021-01",
+      "end_date": "Present",
+      "responsibilities": [
+        "Led migration of legacy services to Python microservices",
+        "Improved reliability through CI/CD automation"
+      ]
+    }
+  ],
+  "skills": {
+    "technical": ["Python", "Docker", "Kubernetes", "FastAPI"],
+    "soft": ["Leadership", "Communication"],
+    "languages": ["English"],
+    "tools": ["GitHub Actions", "Git"]
+  },
+  "projects": [],
+  "certifications": [],
+  "achievements": []
+}

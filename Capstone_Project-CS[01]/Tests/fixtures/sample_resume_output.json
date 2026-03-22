@@ -1,0 +1,49 @@
+{
+  "resume_sections": {
+    "header": {
+      "name": "John Doe",
+      "contact": [
+        "john.doe@example.com",
+        "+1-555-0101",
+        "New York, NY",
+        "linkedin.com/in/johndoe"
+      ]
+    },
+    "professional_summary": "Senior backend engineer with strong Python, Docker, and Kubernetes experience.",
+    "skills": {
+      "technical": ["Python", "Docker", "Kubernetes", "FastAPI"],
+      "tools": ["GitHub Actions", "Git"],
+      "other": ["Leadership", "Communication"]
+    },
+    "experience": [
+      {
+        "title": "Senior Software Engineer",
+        "company": "Example Corp",
+        "location": "New York, NY",
+        "dates": "01/2021 - Present",
+        "bullets": [
+          "Led migration of legacy services to Python-based microservices.",
+          "Improved deployment reliability by 35% through CI/CD automation."
+        ]
+      }
+    ],
+    "education": [
+      {
+        "degree": "Bachelor of Engineering in Computer Science",
+        "institution": "Example University",
+        "graduation_date": "2020",
+        "honors": "Magna Cum Laude"
+      }
+    ],
+    "certifications": [],
+    "projects": []
+  },
+  "keyword_coverage": {
+    "included_keywords": ["Python", "Docker", "Kubernetes"],
+    "keyword_density": "78%"
+  },
+  "ats_optimization_notes": [
+    "Used standard section headings",
+    "Included critical keywords naturally"
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "job_title": "Senior Backend Engineer",
+  "company": "Tech Corp",
+  "location": "Remote",
+  "job_type": "Full-time",
+  "experience_level": "Senior",
+  "requirements": {
+    "education": ["Bachelor's degree in Computer Science or related field"],
+    "experience": ["5+ years of software engineering experience"],
+    "technical_skills": ["Python", "Docker", "Kubernetes"],
+    "soft_skills": ["Leadership", "Communication"],
+    "certifications": [],
+    "other": []
+  },
+  "responsibilities": [
+    "Design and implement backend microservices",
+    "Improve reliability and CI/CD pipelines",
+    "Mentor engineers"
+  ],
+  "preferred_qualifications": ["Cloud platform experience"],
+  "keywords": {
+    "technical": ["Python", "Docker", "Kubernetes"],
+    "domain": ["Microservices", "Cloud"],
+    "action_verbs": ["Design", "Implement", "Mentor"],
+    "tools_technologies": ["GitHub Actions", "FastAPI"]
+  },
+  "benefits": [],
+  "company_culture": "Collaborative and fast-moving",
+  "application_requirements": []
+}

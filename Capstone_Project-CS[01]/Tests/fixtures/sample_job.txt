@@ -1,0 +1,15 @@
+Senior Backend Engineer
+
+We are looking for a Senior Backend Engineer to build scalable cloud services.
+
+Requirements:
+- 5+ years of software engineering experience
+- Strong Python experience
+- Experience with Docker and Kubernetes
+- Ability to lead technical discussions
+- Strong communication and mentoring skills
+
+Responsibilities:
+- Design and implement backend microservices
+- Improve CI/CD pipelines and service reliability
+- Mentor team members and review architecture decisions
